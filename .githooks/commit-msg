@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+COMMIT_MSG_FILE="$1"
+PATTERN='^\[TS-[0-9]{2,}\] : .+'
+
+if ! grep -Eq "$PATTERN" "$COMMIT_MSG_FILE"; then
+  echo "Invalid commit message format."
+  echo "Expected: [TS-XX] : Commit message"
+  echo "Also valid : [TS-123] : Commit message"
+  exit 1
+fi
