@@ -1,0 +1,6 @@
+import os
+
+class Config:
+    SECRET_KEY = os.getenv("SECRET_KEY", "21e3540abaf13451ad630d684e2dd78c84dff98375bc5a7ac06faf165280b872")
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False

@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: timesync-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: timesync
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: 0sCihxBG6snZPxWeD11c0YoVZcZjV
+    ports:
+      - "5432:5432"
+    volumes:
+      - timesync_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timesync -d timesync"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # backend:
+  #   build:
+  #     context: ./backend
+  #   container_name: timesync-backend
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql+psycopg://timesync:timesync@db:5432/timesync
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./backend:/app
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #   container_name: timesync-frontend
+  #   depends_on:
+  #     - backend
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+
+volumes:
+  timesync_postgres_data:
