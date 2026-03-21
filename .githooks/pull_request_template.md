@@ -2,9 +2,11 @@
 This PR is meant to ...
 
 Please describe briefly:
-- what was changed
-- why it was needed
-- anything important for the reviewer to know
+- what was changed : ...
+
+- why it was needed : ...
+
+- anything important for the reviewer to know : ...
 
 ## Ticket
 - [ ] Linked to a user story
@@ -17,4 +19,4 @@ Please describe briefly:
 - [ ] Any risky or impactful behavior was reviewed manually
 
 ## Reviewer notes
--
+- 
