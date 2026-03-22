@@ -7,7 +7,7 @@ def register_error_handlers(app):
     @app.errorhandler(ApiError)
     def handle_api_error(error):
         return error_response(
-            cde=error.error_code,
+            code=error.error_code,
             message=error.message,
             details=error.details,
             status_code=error.status_code,
