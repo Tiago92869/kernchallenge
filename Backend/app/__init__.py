@@ -9,13 +9,16 @@ from app.api.error_handlers import register_error_handlers
 load_dotenv()
 
 def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
+    flask_app = Flask(__name__)
+    flask_app.config.from_object(Config)
 
-    db.init_app(app)
-    migrate.init_app(app, db)
+    db.init_app(flask_app)
+    migrate.init_app(flask_app, db)
 
-    app.register_blueprint(health_bp)
-    register_error_handlers(app)
+    with flask_app.app_context():
+        from app import models
 
-    return app
+    flask_app.register_blueprint(health_bp)
+    register_error_handlers(flask_app)
+
+    return flask_app 
