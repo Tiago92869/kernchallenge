@@ -8,6 +8,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app import create_app
 from app.extensions import db
 from app.models.user import User
+from app.services.project_service import ProjectService
+
 
 @pytest.fixture
 def app():
@@ -47,3 +49,22 @@ def user_factory(app):
         db.session.commit()
         return user
     return create_user
+
+@pytest.fixture
+def project_factory(app, user_factory):
+    def create_project(
+            owner=None,
+            name="TimeSync",
+            description="Main project",
+            visibility="PRIVATE"
+    ):
+        if owner is None:
+            owner = user_factory()
+
+        return ProjectService.create_project(
+            owner_id=owner.id,
+            name=name,
+            description=description,
+            visibility=visibility
+        )
+    return create_project

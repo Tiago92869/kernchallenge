@@ -1,6 +1,7 @@
 import pytest
 
-from app.api.errors import ValidationError
+from uuid import UUID
+from app.api.errors import NotFoundError, ValidationError
 from app.models.project import ProjectVisibility
 from app.services.project_service import ProjectService
 
@@ -46,3 +47,46 @@ def test_create_project_rejects_invalid_visibility(user_factory):
         )
 
     assert exc_info.value.message == "Invalid project visibility"
+
+def test_update_project_success(project_factory):
+    project = project_factory()
+
+    project = ProjectService.updateProject(
+        project_id = project.id,
+        name = " TimeSyncProject ",
+        description = " This is a project one ",
+        visibility = "PUBLIC"
+    )
+
+    assert project.id is not None
+    assert project.name == "TimeSyncProject"
+    assert project.description == "This is a project one"
+    assert project.visibility == ProjectVisibility.PUBLIC
+    assert project.is_archived is False
+
+def test_update_project_invalid_id_project_not_found(project_factory):
+    project = project_factory()
+
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectService.updateProject(
+            project_id = UUID("550e8400-e29b-41d4-a716-446655440000"),
+            name = " TimeSyncProject ",
+            description = " This is a project one ",
+            visibility = "PUBLIC"
+        )
+
+    assert exc_info.value.message == "Project not found"
+
+def test_update_project_rejects_invalid_visibility(project_factory):
+    project = project_factory()
+
+    with pytest.raises(ValidationError) as exc_info:
+        ProjectService.updateProject(
+            project_id = project.id,
+            name = " TimeSyncProject ",
+            description = " This is a project one ",
+            visibility = "ERROR"
+        )
+
+    assert exc_info.value.message == "Invalid project visibility"
+

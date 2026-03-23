@@ -21,3 +21,18 @@ def create_project():
         data=ProjectSchema.serialize_project(project),
         status_code=201,
     )
+
+@project_bp.put("/<project_id>")
+def update_project(project_id):
+    data = request.get_json() or {}
+
+    project = ProjectService.updateProject(
+        project_id=UUID(project_id),
+        name=data.get("name"),
+        description=data.get("description"),
+        visibility=data.get("visibility", "PRIVATE"),
+    )
+
+    return success_response(
+        data=ProjectSchema.serialize_project(project)
+    )
