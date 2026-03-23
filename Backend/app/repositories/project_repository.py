@@ -10,4 +10,4 @@ class ProjectRepository:
     
     @staticmethod
     def get_by_id(project_id):
-        return Project.query.get(project_id)
+        return db.session.get(Project, project_id)

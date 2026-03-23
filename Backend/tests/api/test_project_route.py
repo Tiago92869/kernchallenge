@@ -58,3 +58,60 @@ def test_create_project_returns_400_when_visibility_is_invalid(client, user_fact
     body = response.get_json()
     assert body["success"] is False
     assert body["error"]["message"] == "Invalid project visibility"
+
+def test_update_project_success(client, project_factory):
+    project = project_factory()
+
+    response = client.put(
+        f"/projects/{project.id}",
+        json={
+            "name": "Updated Project",
+            "description": "Updated description",
+            "visibility": "PUBLIC",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["name"] == 'Updated Project'
+    assert body["data"]["description"] == 'Updated description'
+    assert body["data"]["visibility"] == 'PUBLIC'
+    assert body["data"]["is_archived"] is False
+
+def test_update_project_returns_404_when_project_not_found(client, user_factory):
+    owner = user_factory()
+
+    response = client.put(
+        "/projects/00000000-0000-0000-0000-000000000000",
+        json={
+            "name": "Updated Project",
+            "description": "Updated description",
+            "visibility": "PUBLIC",
+        },
+    )
+
+    assert response.status_code == 404
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Project not found"
+
+def test_update_project_returns_400_when_visibility_is_invalid(client, project_factory):
+    project = project_factory()
+
+    response = client.put(
+        f"/projects/{project.id}",
+        json={
+            "name": "Updated Project",
+            "description": "Updated description",
+            "visibility": "INVALID",
+        },
+    )
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Invalid project visibility"
