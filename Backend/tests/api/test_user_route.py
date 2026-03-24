@@ -56,3 +56,100 @@ def test_create_user_return_400_invalid_email_format(client):
     assert body["success"] is False
     assert body["error"]["message"] == "Invalid email format"
 
+def test_update_user_200(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        f"/users/{user_db.id}",
+        json = {
+            "email": "tiago@gmail.com",
+            "firstname": "Pedro",
+            "lastname": "Jonas",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["email"] == "tiago@gmail.com"
+    assert body["data"]["firstname"] == "Pedro"
+    assert body["data"]["lastname"] == "Jonas"
+
+def test_update_user_400_invalid_Email(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        f"/users/{user_db.id}",
+        json = {
+            "email": "invalidformat",
+            "firstname": "Pedro",
+            "lastname": "Jonas",
+        },
+    )
+
+    assert response.status_code == 400
+    
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Invalid email format"
+
+
+def test_update_user_400_duplicated_email(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        f"/users/{user_db.id}",
+        json = {
+            "email": "tiagomartins123@gmail.com",
+            "firstname": "Pedro",
+            "lastname": "Jonas",
+        },
+    )
+
+    assert response.status_code == 400
+    
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Email already exists"
+
+def test_update_user_404_user_not_found(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        "/users/00000000-0000-0000-0000-000000000000",
+        json = {
+            "email": "tiagomartins123@gmail.com",
+            "firstname": "Pedro",
+            "lastname": "Jonas",
+        },
+    )
+
+    assert response.status_code == 404
+    
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "User not found"
+
+def test_get_user_by_id_200(client, user_factory):
+    user_db = user_factory()
+
+    response = client.get(f"/users/{user_db.id}")
+
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["email"] == user_db.email
+    assert body["data"]["firstname"] == user_db.first_name
+    assert body["data"]["lastname"] == user_db.last_name
+
+def test_get_user_by_id_404_user_not_found(client):
+
+    response = client.get("/users/00000000-0000-0000-0000-000000000000")
+
+    assert response.status_code == 404
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "User not found"
