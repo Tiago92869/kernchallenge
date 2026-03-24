@@ -153,3 +153,87 @@ def test_get_user_by_id_404_user_not_found(client):
     body = response.get_json()
     assert body["success"] is False
     assert body["error"]["message"] == "User not found"
+
+def test_update_password_200(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        f"/users/password/{user_db.id}",
+        json = {
+            "old_password": "password123",
+            "new_password": "newpassword123"
+        }
+    )
+
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["success"] is True
+
+def test_update_password_user_not_found(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        "/users/password/00000000-0000-0000-0000-000000000000",
+        json = {
+            "old_password": "password123",
+            "new_password": "newpassword123"
+        }
+    )
+
+    assert response.status_code == 404
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "User not found"
+
+def test_update_password_empty_password(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        f"/users/password/{user_db.id}",
+        json = {
+            "old_password": "password123",
+            "new_password": ""
+        }
+    )
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "New password cannot be empty"
+
+def test_update_password_current_password_same_as_new_password(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        f"/users/password/{user_db.id}",
+        json = {
+            "old_password": "password123",
+            "new_password": "password123"
+        }
+    )
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "New password cannot be the same as the current password"
+
+def test_update_password_incorrect_old_password(client, user_factory):
+    user_db = user_factory()
+
+    response = client.put(
+        f"/users/password/{user_db.id}",
+        json = {
+            "old_password": "incorrectpassword",
+            "new_password": "newpassword123"
+        }
+    )
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Incorrect old password"
