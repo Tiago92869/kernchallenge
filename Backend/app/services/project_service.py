@@ -59,8 +59,7 @@ class ProjectService:
         project.description = description.strip() if description else None
         project.visibility = project_visibility
 
-        return ProjectRepository.save(project
-    )
+        return ProjectRepository.save(project)
 
 
             
