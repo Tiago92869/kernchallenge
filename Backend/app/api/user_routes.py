@@ -42,3 +42,15 @@ def get_user_by_id(user_id):
     user = UserService.get_user_by_id(UUID(user_id))
 
     return success_response(data = UserSchema.serialize_user(user))
+
+@user_bp.put("/password/<user_id>")
+def update_password(user_id):
+    data = request.get_json() or {}
+
+    UserService.update_password(
+        user_id = UUID(user_id),
+        old_password = data.get("old_password"),
+        new_password = data.get("new_password")
+    )
+
+    return success_response(message="Password updated successfully")

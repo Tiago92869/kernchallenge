@@ -88,3 +88,27 @@ class UserService:
             raise NotFoundError(message = "User not found")
         else:
             return user
+
+    @staticmethod
+    def update_password(
+        *,
+        user_id: UUID,
+        old_password: str,
+        new_password: str
+    ) -> None:
+        user = UserRepository.get_by_id(user_id)
+
+        if not user:
+            raise NotFoundError(message = "User not found")
+        
+        if not user.check_password(old_password):
+            raise ValidationError(message = "Incorrect old password")
+
+        if not new_password:
+            raise ValidationError(message = "New password cannot be empty")
+
+        if old_password == new_password:
+            raise ValidationError(message = "New password cannot be the same as the current password")
+
+        user.set_password(new_password)
+        UserRepository.save(user)

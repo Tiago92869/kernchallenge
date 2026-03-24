@@ -117,3 +117,62 @@ def test_get_user_by_id_not_found(client, user_factory):
         UserService.get_user_by_id(UUID("5540e840-e29b-41d4-a716-446655440000"))
 
     assert exc_info.value.message == "User not found"
+
+def test_update_password_sucess(user_factory):
+    user_db = user_factory()
+
+    UserService.update_password(
+        user_id = user_db.id,
+        old_password = "password123",
+        new_password = "newpassword123"
+    )
+
+    assert user_db.check_password("newpassword123") is True
+
+def test_update_password_user_not_found(user_factory):
+    user_db = user_factory()
+
+    with pytest.raises(NotFoundError) as exc_info:
+        UserService.update_password(
+            user_id = UUID("5540e840-e29b-41d4-a716-446655440000"),
+            old_password = "password123",
+            new_password = "newpassword123"
+        )
+
+    assert exc_info.value.message == "User not found"
+
+def test_update_password_empty_password(user_factory):
+    user_db = user_factory()
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.update_password(
+            user_id = user_db.id,
+            old_password = "password123",
+            new_password = ""
+        )
+
+    assert exc_info.value.message == "New password cannot be empty"
+
+def test_update_password_current_password_same_as_new_password(user_factory):
+    user_db = user_factory()
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.update_password(
+            user_id = user_db.id,
+            old_password = "password123",
+            new_password = "password123"
+        )
+
+    assert exc_info.value.message == "New password cannot be the same as the current password"
+
+def test_update_password_incorrect_old_password(user_factory):
+    user_db = user_factory()
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.update_password(
+            user_id = user_db.id,
+            old_password = "wrongpassword",
+            new_password = "newpassword123"
+        )
+
+    assert exc_info.value.message == "Incorrect old password"
