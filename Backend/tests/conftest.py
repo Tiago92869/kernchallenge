@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app import create_app
 from app.extensions import db
 from app.models.project_member import ProjectMember
+from app.models.time_entry import TimeEntry
 from app.models.user import User
 from app.services.project_service import ProjectService
 
@@ -152,3 +153,42 @@ def project_member_factory(app, project_factory, user_factory):
         return project_member
 
     return create_project_member
+
+@pytest.fixture
+def time_entry_factory(app, user_factory, project_factory):
+    def create_time_entry(
+            user=None,
+            project=None,
+            description="Worked on feature",
+            work_date=None,
+            duration_minutes=60,
+    ):
+        if user is None:
+            user = user_factory(email=f"{uuid.uuid4()}@test.com")
+
+        if project is None:
+            project = project_factory(owner=user)
+
+        # ensure the user is an active member of the project
+        project_member = ProjectMember.query.filter_by(project_id=project.id, user_id=user.id).first()
+        if project_member is None:
+            project_member = ProjectMember(
+                project_id=project.id,
+                user_id=user.id,
+            )
+            db.session.add(project_member)
+            db.session.flush()
+
+        time_entry = TimeEntry(
+            user_id=user.id,
+            project_id=project.id,
+            description=description,
+            work_date=work_date or datetime.now().date(),
+            duration_minutes=duration_minutes,
+        )
+        db.session.add(time_entry)
+        db.session.commit()
+        return time_entry
+
+    return create_time_entry
+
