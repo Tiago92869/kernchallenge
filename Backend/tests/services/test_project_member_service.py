@@ -4,12 +4,14 @@ from datetime import datetime
 from uuid import UUID
 
 from app.api.errors import NotFoundError
+from app.models.notification import Notification, NotificationType
 from app.models.project_member import ProjectMember
 from app.services.project_member_service import ProjectMemberService
 
 
 def test_add_member_to_project_creates_memberships(project_factory, user_factory):
-    project = project_factory()
+    owner = user_factory(email="project-owner-one@test.com", first_name="Owner", last_name="One")
+    project = project_factory(owner=owner, name="Team Project")
     user_one = user_factory(email="project-member-one@test.com")
     user_two = user_factory(email="project-member-two@test.com")
 
@@ -21,6 +23,12 @@ def test_add_member_to_project_creates_memberships(project_factory, user_factory
     assert sorted(project_member.user_id for project_member in project_members) == sorted([user_one.id, user_two.id])
     for project_member in project_members:
         assert project_member.removed_at is None
+
+    notifications = Notification.query.filter_by(project_id=project.id).all()
+    assert len(notifications) == 2
+    assert sorted(notification.recipient_user_id for notification in notifications) == sorted([user_one.id, user_two.id])
+    assert all(notification.notification_type == NotificationType.ADDED for notification in notifications)
+    assert all('"Owner One" just added you to "Team Project"' == notification.message for notification in notifications)
 
 
 def test_add_member_to_project_reactivates_soft_deleted_membership(project_factory, user_factory, project_member_factory):
@@ -86,7 +94,8 @@ def test_add_member_to_project_raises_when_user_is_missing(project_factory):
 
 
 def test_remove_member_from_project_sets_removed_fields(project_factory, user_factory, project_member_factory):
-    project = project_factory()
+    owner = user_factory(email="project-owner-two@test.com", first_name="Owner", last_name="Two")
+    project = project_factory(owner=owner, name="Ops Project")
     user = user_factory(email="remove-member@test.com")
     project_member = project_member_factory(project=project, user=user)
 
@@ -95,6 +104,11 @@ def test_remove_member_from_project_sets_removed_fields(project_factory, user_fa
     assert updated_project_member.id == project_member.id
     assert updated_project_member.removed_at is not None
     assert updated_project_member.removed_by_user_id is None
+
+    notification = Notification.query.filter_by(project_id=project.id, recipient_user_id=user.id).first()
+    assert notification is not None
+    assert notification.notification_type == NotificationType.REMOVED
+    assert notification.message.startswith('"Owner Two" just removed you from "Ops Project" at "')
 
 
 def test_remove_member_from_project_raises_when_membership_not_found(project_factory, user_factory):
