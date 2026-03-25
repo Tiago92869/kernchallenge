@@ -118,3 +118,68 @@ def test_remove_member_from_project_raises_when_project_is_archived(project_fact
     assert exc_info.value.message == "Project not found or is archived"
 
 
+def test_remove_member_from_project_raises_when_user_is_inactive(project_factory, user_factory):
+    project = project_factory()
+    user = user_factory(email="inactive-remove-member@test.com", is_active=False)
+
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectMemberService.remove_member_from_project(project.id, user.id)
+
+    assert exc_info.value.message == f"User with id {user.id} not found or is not active"
+
+
+def test_remove_member_from_project_raises_when_user_is_missing(project_factory):
+    project = project_factory()
+    missing_user_id = UUID("5540e840-e29b-41d4-a716-446655440000")
+
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectMemberService.remove_member_from_project(project.id, missing_user_id)
+
+    assert exc_info.value.message == f"User with id {missing_user_id} not found or is not active"
+
+def test_project_member_get_currently_active_members(project_factory, user_factory, project_member_factory):
+    project = project_factory()
+    active_user = user_factory(email="active-member@test.com")
+    inactive_user = user_factory(email="inactive-member@test.com", is_active=False)
+    removed_user = user_factory(email="removed-member@test.com")
+
+    project_member_factory(project=project, user=active_user)
+    project_member_factory(project=project, user=inactive_user)
+    project_member_factory(project=project, user=removed_user, removed_at=datetime.now())
+
+    active_members = ProjectMemberService.get_currently_active_members(project.id)
+
+    assert len(active_members) == 1
+    assert active_members[0].user_id == active_user.id
+
+def test_project_member_get_currently_active_members_returns_empty_list_when_no_active_members(project_factory, user_factory, project_member_factory):
+    project = project_factory()
+    removed_user = user_factory(email="removed-member@test.com")
+
+    project_member_factory(project=project, user=removed_user, removed_at=datetime.now())
+
+    active_members = ProjectMemberService.get_currently_active_members(project.id)
+
+    assert len(active_members) == 0
+
+def test_project_member_get_currently_active_members_raises_when_project_is_archived(project_factory, user_factory):
+    project = project_factory(is_archived=True)
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectMemberService.get_currently_active_members(project.id)
+
+    assert exc_info.value.message == "Project not found or is archived"
+
+def test_project_member_get_currently_active_members_raises_when_project_is_missing(app):
+    missing_project_id = UUID("550e8400-e29b-41d4-a716-446655440000")
+    with app.app_context():
+        with pytest.raises(NotFoundError) as exc_info:
+            ProjectMemberService.get_currently_active_members(missing_project_id)
+
+    assert exc_info.value.message == "Project not found or is archived"
+
+def test_project_member_get_currently_active_members_raises_when_project_is_archived(project_factory):
+    project = project_factory(is_archived=True)
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectMemberService.get_currently_active_members(project.id)
+
+    assert exc_info.value.message == "Project not found or is archived"

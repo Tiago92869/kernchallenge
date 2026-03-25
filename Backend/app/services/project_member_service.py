@@ -14,18 +14,15 @@ class ProjectMemberService:
     @staticmethod
     def add_member_to_project(project_id:UUID, users_ids:list[UUID]) :
 
-        #call project service to if the project exits and is not archived
         if not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
 
-        #for each user uuid make sure the user exists and is active
         for user_id in users_ids:
             if not UserService.does_user_exist_and_active(user_id):
                 raise NotFoundError(message=f"User with id {user_id} not found or is not active")
 
             project_member = ProjectMemberRepository.get_by_project_and_user(project_id, user_id)
 
-            #if he is but we have a removed_at date we will set it to null and save the project member
             if project_member and project_member.removed_at is not None:
                 project_member.removed_at = None
                 project_member.removed_by_user_id = None
@@ -45,6 +42,9 @@ class ProjectMemberService:
         if not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
 
+        if not UserService.does_user_exist_and_active(user_id):
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+
         project_member = ProjectMemberRepository.get_by_id(user_id, project_id)
 
         if not project_member:
@@ -55,5 +55,12 @@ class ProjectMemberService:
         project_member.removed_by_user_id = None
 
         return ProjectMemberRepository.save(project_member)
+
+    @staticmethod
+    def get_currently_active_members(project_id: UUID) -> list[ProjectMember]:
+        if not ProjectService.does_project_exist_and_active(project_id):
+            raise NotFoundError(message="Project not found or is archived")
+
+        return ProjectMemberRepository.get_currently_active_members(project_id)
             
             

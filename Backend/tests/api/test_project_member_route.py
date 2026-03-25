@@ -1,4 +1,70 @@
+from datetime import datetime
+
 from app.models.project_member import ProjectMember
+
+
+def test_get_currently_active_members_returns_200_with_expected_body(client, project_factory, user_factory, project_member_factory):
+	project = project_factory()
+	active_user = user_factory(email="route-active-member@test.com", first_name="Active", last_name="Member")
+	inactive_user = user_factory(email="route-inactive-member@test.com", first_name="Inactive", last_name="Member", is_active=False)
+	removed_user = user_factory(email="route-removed-member@test.com", first_name="Removed", last_name="Member")
+
+	project_member_factory(project=project, user=active_user)
+	project_member_factory(project=project, user=inactive_user)
+	project_member_factory(project=project, user=removed_user, removed_at=datetime.now())
+
+	response = client.get(f"/project-members/{project.id}/active")
+
+	assert response.status_code == 200
+
+	body = response.get_json()
+	assert body["success"] is True
+	assert body["data"] == [
+		{
+			"id": str(active_user.id),
+			"firstname": "Active",
+			"lastname": "Member",
+		}
+	]
+
+
+def test_get_currently_active_members_returns_empty_list_when_no_active_members(client, project_factory, user_factory, project_member_factory):
+	project = project_factory()
+	removed_user = user_factory(email="route-only-removed-member@test.com", first_name="Removed", last_name="Only")
+
+	project_member_factory(project=project, user=removed_user, removed_at=datetime.now())
+
+	response = client.get(f"/project-members/{project.id}/active")
+
+	assert response.status_code == 200
+
+	body = response.get_json()
+	assert body["success"] is True
+	assert body["data"] == []
+
+
+def test_get_currently_active_members_returns_404_when_project_is_archived(client, project_factory):
+	project = project_factory(is_archived=True)
+
+	response = client.get(f"/project-members/{project.id}/active")
+
+	assert response.status_code == 404
+
+	body = response.get_json()
+	assert body["success"] is False
+	assert body["error"]["message"] == "Project not found or is archived"
+
+
+def test_get_currently_active_members_returns_404_when_project_is_missing(client):
+	missing_project_id = "550e8400-e29b-41d4-a716-446655440000"
+
+	response = client.get(f"/project-members/{missing_project_id}/active")
+
+	assert response.status_code == 404
+
+	body = response.get_json()
+	assert body["success"] is False
+	assert body["error"]["message"] == "Project not found or is archived"
 
 
 def test_add_project_members_returns_200(client, project_factory, user_factory):
@@ -130,3 +196,29 @@ def test_remove_project_member_returns_404_when_project_is_archived(client, proj
 	body = response.get_json()
 	assert body["success"] is False
 	assert body["error"]["message"] == "Project not found or is archived"
+
+
+def test_remove_project_member_returns_404_when_user_is_inactive(client, project_factory, user_factory):
+	project = project_factory()
+	user = user_factory(email="route-inactive-remove-member@test.com", is_active=False)
+
+	response = client.put(f"/project-members/{project.id}/{user.id}/remove")
+
+	assert response.status_code == 404
+
+	body = response.get_json()
+	assert body["success"] is False
+	assert body["error"]["message"] == f"User with id {user.id} not found or is not active"
+
+
+def test_remove_project_member_returns_404_when_user_is_missing(client, project_factory):
+	project = project_factory()
+	missing_user_id = "5540e840-e29b-41d4-a716-446655440000"
+
+	response = client.put(f"/project-members/{project.id}/{missing_user_id}/remove")
+
+	assert response.status_code == 404
+
+	body = response.get_json()
+	assert body["success"] is False
+	assert body["error"]["message"] == f"User with id {missing_user_id} not found or is not active"
