@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from app.api.errors import NotFoundError, ValidationError
@@ -34,9 +35,25 @@ class ProjectMemberService:
             if not project_member:
                 project_member = ProjectMember(
                     project_id=project_id,
-                    user_id=user_id
-                    #TODO missing added_by_user_id
+                    user_id=user_id,
+                    # TODO missing added_by_user_id once auth context exists.
                 )
                 ProjectMemberRepository.save(project_member)
+
+    @staticmethod
+    def remove_member_from_project(project_id: UUID, user_id: UUID) -> ProjectMember:
+        if not ProjectService.does_project_exist_and_active(project_id):
+            raise NotFoundError(message="Project not found or is archived")
+
+        project_member = ProjectMemberRepository.get_by_id(user_id, project_id)
+
+        if not project_member:
+            raise NotFoundError(message="Project member not found")
+
+        project_member.removed_at = datetime.now()
+        # TODO missing removed_by_user_id once auth context exists.
+        project_member.removed_by_user_id = None
+
+        return ProjectMemberRepository.save(project_member)
             
             
