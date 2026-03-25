@@ -3,9 +3,25 @@ from uuid import UUID
 from app.api.errors import NotFoundError, ValidationError
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.schemas.user_shcema import UserSchema
 
 class UserService:
+    @staticmethod
+    def _normalize_is_active_filter(is_active: bool | str | None) -> bool | None:
+        if is_active is None or is_active == "":
+            return None
+
+        if isinstance(is_active, bool):
+            return is_active
+
+        if isinstance(is_active, str):
+            normalized = is_active.strip().lower()
+            if normalized == "true":
+                return True
+            if normalized == "false":
+                return False
+
+        raise ValidationError(message="Invalid is_active filter")
+
     @staticmethod
     def create_user(
         *,
@@ -112,3 +128,13 @@ class UserService:
 
         user.set_password(new_password)
         UserRepository.save(user)
+
+    @staticmethod
+    def get_all_users(*, search: str | None = None, is_active: bool | str | None = None) -> list[User]:
+        normalized_search = (search or "").strip()
+        normalized_is_active = UserService._normalize_is_active_filter(is_active)
+
+        return UserRepository.get_all(
+            normalized_search,
+            normalized_is_active,
+        )

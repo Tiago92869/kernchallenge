@@ -1,5 +1,6 @@
 from flask import Blueprint, request
 from uuid import UUID
+from app.api.errors import ValidationError
 from app.api.responses import success_response
 from app.services.user_service import UserService
 from app.schemas.user_shcema import UserSchema
@@ -54,3 +55,11 @@ def update_password(user_id):
     )
 
     return success_response(message="Password updated successfully")
+
+@user_bp.get("")
+def get_all_users():
+    users = UserService.get_all_users(
+        search=request.args.get("search", ""),
+        is_active=request.args.get("is_active"),
+    )
+    return success_response(data=[UserSchema.serialize_user(user) for user in users])
