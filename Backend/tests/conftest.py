@@ -51,6 +51,49 @@ def user_factory(app):
     return create_user
 
 @pytest.fixture
+def multiple_users_factory(app):
+    def create_multiple_users(count=5, users_data=None):
+        users = []
+        
+        if users_data:
+            for user_data in users_data:
+                user = User(
+                    first_name=user_data.get("first_name", "User"),
+                    last_name=user_data.get("last_name", "Test"),
+                    email=user_data.get("email", f"user{len(users)}@test.com"),
+                    is_active=user_data.get("is_active", True)
+                )
+                user.set_password(user_data.get("password", "password123"))
+                db.session.add(user)
+                users.append(user)
+        else:
+            # Create default users
+            names = [
+                ("Alice", "Smith", True),
+                ("Bob", "Johnson", True),
+                ("Charlie", "Brown", False),
+                ("Diana", "Prince", False),
+                ("Eve", "Wilson", True),
+            ]
+            for i in range(count):
+                first, last, active = names[i % len(names)]
+                user = User(
+                    first_name=first,
+                    last_name=last,
+                    email=f"user{i}@test.com",
+                    is_active=active
+                )
+                user.set_password("password123")
+                db.session.add(user)
+                users.append(user)
+        
+        db.session.commit()
+        return users
+    
+    return create_multiple_users
+
+
+@pytest.fixture
 def project_factory(app, user_factory):
     def create_project(
             owner=None,

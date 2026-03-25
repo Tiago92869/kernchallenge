@@ -88,7 +88,7 @@ def test_update_user_wrong_email_format(user_factory):
     assert exc_info.value.message == "Invalid email format"
 
 def test_update_user_not_found(user_factory):
-    user = user_factory()
+    user_factory()
 
     with pytest.raises(NotFoundError) as exc_info:
         UserService.update_user(
@@ -111,7 +111,7 @@ def test_get_user_by_id_sucess(client, user_factory):
     assert user.last_name == user_db.last_name
 
 def test_get_user_by_id_not_found(client, user_factory):
-    user_db = user_factory()
+    user_factory()
 
     with pytest.raises(NotFoundError) as exc_info:
         UserService.get_user_by_id(UUID("5540e840-e29b-41d4-a716-446655440000"))
@@ -130,7 +130,7 @@ def test_update_password_sucess(user_factory):
     assert user_db.check_password("newpassword123") is True
 
 def test_update_password_user_not_found(user_factory):
-    user_db = user_factory()
+    user_factory()
 
     with pytest.raises(NotFoundError) as exc_info:
         UserService.update_password(
@@ -176,3 +176,71 @@ def test_update_password_incorrect_old_password(user_factory):
         )
 
     assert exc_info.value.message == "Incorrect old password"
+
+def test_get_all_users_with_search_success(client, multiple_users_factory):
+    multiple_users_factory()
+
+    users = UserService.get_all_users(search="Smith")
+
+    assert len(users) == 1
+    assert users[0].email == "user0@test.com"
+    assert users[0].first_name == "Alice"
+    assert users[0].last_name == "Smith"
+
+def test_get_all_users_with_search_no_results(client, multiple_users_factory):
+    multiple_users_factory()
+
+    users = UserService.get_all_users(search="NonExistent")
+
+    assert len(users) == 0
+
+def test_get_all_users_with_search_empty_search(client, multiple_users_factory):
+    multiple_users_factory()
+
+    users = UserService.get_all_users()
+
+    assert len(users) == 5
+
+def test_get_all_users_without_search_with_is_active_true_filter(client, multiple_users_factory):
+    multiple_users_factory()
+
+    users = UserService.get_all_users(is_active=True)
+
+    assert len(users) == 3
+    for user in users:
+        assert user.is_active is True
+
+def test_get_all_users_without_search_with_is_active_false_filter(client, multiple_users_factory):
+    multiple_users_factory()
+
+    users = UserService.get_all_users(is_active=False)
+
+    assert len(users) == 2
+    for user in users:
+        assert user.is_active is False
+
+def test_get_all_users_without_search_with_is_active_false_filter(client, multiple_users_factory):
+    multiple_users_factory()
+
+    users = UserService.get_all_users(is_active=False)
+
+    assert len(users) == 2
+    for user in users:
+        assert user.is_active is False
+
+def test_get_all_users_with_search_with_is_active_false_filter(client, multiple_users_factory):
+    multiple_users_factory()
+
+    users = UserService.get_all_users(search="E", is_active=False)
+    
+    assert len(users) == 2
+    for user in users:
+        assert user.is_active is False
+
+def test_get_all_users_with_search_with_is_active_invalid_filter(client, multiple_users_factory):
+    multiple_users_factory()
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.get_all_users(search="E", is_active="invalid")
+
+    assert exc_info.value.message == "Invalid is_active filter"
