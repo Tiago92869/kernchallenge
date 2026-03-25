@@ -138,3 +138,8 @@ class UserService:
             normalized_search,
             normalized_is_active,
         )
+    
+    @staticmethod
+    def does_user_exist_and_active(user_id: UUID) -> bool:
+        user = UserRepository.get_by_id(user_id)
+        return user is not None and user.is_active is True

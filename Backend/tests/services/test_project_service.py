@@ -90,3 +90,23 @@ def test_update_project_rejects_invalid_visibility(project_factory):
 
     assert exc_info.value.message == "Invalid project visibility"
 
+def test_does_project_exist_and_active_returns_true(project_factory):
+    project = project_factory()
+
+    project_exists = ProjectService.does_project_exist_and_active(project.id)
+
+    assert project_exists is True
+
+def test_does_project_exist_and_active_returns_false_for_archived_project(project_factory):
+    project = project_factory(is_archived=True)
+
+    project_exists = ProjectService.does_project_exist_and_active(project.id)
+
+    assert project_exists is False
+
+def test_does_project_exist_and_active_returns_false_for_missing_project(app):
+    with app.app_context():
+        project_exists = ProjectService.does_project_exist_and_active(UUID("550e8400-e29b-41d4-a716-446655440000"))
+
+    assert project_exists is False
+

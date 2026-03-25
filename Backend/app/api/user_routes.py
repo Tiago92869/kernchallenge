@@ -3,7 +3,7 @@ from uuid import UUID
 from app.api.errors import ValidationError
 from app.api.responses import success_response
 from app.services.user_service import UserService
-from app.schemas.user_shcema import UserSchema
+from app.schemas.user_schema import UserSchema
 
 user_bp = Blueprint("users", __name__, url_prefix="/users")
 
