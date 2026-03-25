@@ -1,7 +1,8 @@
+from datetime import datetime
 from uuid import UUID
 from app.models.project import Project, ProjectVisibility
 from app.repositories.project_repository import ProjectRepository
-from app.api.errors import NotFoundError, ValidationError
+from app.api.errors import ForbiddenError, NotFoundError, ValidationError
 
 class ProjectService:
     @staticmethod
@@ -65,6 +66,37 @@ class ProjectService:
     def does_project_exist_and_active(project_id: UUID) -> bool:
         project = ProjectRepository.get_by_id(project_id)
         return project is not None and project.archived_at is None
+
+    @staticmethod
+    def change_archive_status(*, project_id: UUID, user_id: UUID, action: str) -> Project:
+        project = ProjectRepository.get_by_id(project_id)
+
+        if not project:
+            raise NotFoundError(message="Project not found")
+
+        if project.owner_id != user_id:
+            raise ForbiddenError(message="User is not the project owner")
+
+        normalized_action = (action or "").strip().lower()
+        if normalized_action not in {"archive", "unarchive"}:
+            raise ValidationError(message="Invalid action. Use 'archive' or 'unarchive'")
+
+        should_archive = normalized_action == "archive"
+
+        if project.is_archived == should_archive:
+            raise ValidationError(message="Project already in requested state")
+
+        if should_archive:
+            project.is_archived = True
+            project.archived_at = datetime.now()
+            project.archived_by_user_id = user_id
+        else:
+            project.is_archived = False
+            project.archived_at = None
+            project.archived_by_user_id = None
+            project.archived_reason = None
+
+        return ProjectRepository.save(project)
 
 
             

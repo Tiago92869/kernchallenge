@@ -1,7 +1,7 @@
 import pytest
 
 from uuid import UUID
-from app.api.errors import NotFoundError, ValidationError
+from app.api.errors import ForbiddenError, NotFoundError, ValidationError
 from app.models.project import ProjectVisibility
 from app.services.project_service import ProjectService
 
@@ -110,3 +110,82 @@ def test_does_project_exist_and_active_returns_false_for_missing_project(app):
 
     assert project_exists is False
 
+def test_change_archive_status_archives_project(project_factory):
+    project = project_factory()
+
+    archived_project = ProjectService.change_archive_status(
+        project_id=project.id,
+        user_id=project.owner_id,
+        action="archive",
+    )
+
+    assert archived_project.is_archived is True
+    assert archived_project.archived_at is not None
+    assert archived_project.archived_by_user_id == project.owner_id
+
+
+def test_change_archive_status_unarchives_project(project_factory):
+    project = project_factory(is_archived=True)
+
+    unarchived_project = ProjectService.change_archive_status(
+        project_id=project.id,
+        user_id=project.owner_id,
+        action="unarchive",
+    )
+
+    assert unarchived_project.is_archived is False
+    assert unarchived_project.archived_at is None
+    assert unarchived_project.archived_by_user_id is None
+
+
+def test_change_archive_status_project_not_found(project_factory):
+    project = project_factory()
+
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectService.change_archive_status(
+            project_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
+            user_id=project.owner_id,
+            action="archive",
+        )
+
+    assert exc_info.value.message == "Project not found"
+
+
+def test_change_archive_status_rejects_invalid_action(project_factory):
+    project = project_factory()
+
+    with pytest.raises(ValidationError) as exc_info:
+        ProjectService.change_archive_status(
+            project_id=project.id,
+            user_id=project.owner_id,
+            action="invalid",
+        )
+
+    assert exc_info.value.message == "Invalid action. Use 'archive' or 'unarchive'"
+
+
+def test_change_archive_status_rejects_same_state(project_factory):
+    project = project_factory(is_archived=True)
+
+    with pytest.raises(ValidationError) as exc_info:
+        ProjectService.change_archive_status(
+            project_id=project.id,
+            user_id=project.owner_id,
+            action="archive",
+        )
+
+    assert exc_info.value.message == "Project already in requested state"
+
+
+def test_change_archive_status_rejects_when_user_not_owner(project_factory, user_factory):
+    project = project_factory()
+    user = user_factory(email="not-owner@test.com")
+
+    with pytest.raises(ForbiddenError) as exc_info:
+        ProjectService.change_archive_status(
+            project_id=project.id,
+            user_id=user.id,
+            action="archive",
+        )
+
+    assert exc_info.value.message == "User is not the project owner"
