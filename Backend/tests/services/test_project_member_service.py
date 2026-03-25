@@ -83,3 +83,38 @@ def test_add_member_to_project_raises_when_user_is_missing(project_factory):
         ProjectMemberService.add_member_to_project(project.id, [missing_user_id])
 
     assert exc_info.value.message == f"User with id {missing_user_id} not found or is not active"
+
+
+def test_remove_member_from_project_sets_removed_fields(project_factory, user_factory, project_member_factory):
+    project = project_factory()
+    user = user_factory(email="remove-member@test.com")
+    project_member = project_member_factory(project=project, user=user)
+
+    updated_project_member = ProjectMemberService.remove_member_from_project(project.id, user.id)
+
+    assert updated_project_member.id == project_member.id
+    assert updated_project_member.removed_at is not None
+    assert updated_project_member.removed_by_user_id is None
+
+
+def test_remove_member_from_project_raises_when_membership_not_found(project_factory, user_factory):
+    project = project_factory()
+    user = user_factory(email="missing-membership@test.com")
+
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectMemberService.remove_member_from_project(project.id, user.id)
+
+    assert exc_info.value.message == "Project member not found"
+
+
+def test_remove_member_from_project_raises_when_project_is_archived(project_factory, user_factory, project_member_factory):
+    project = project_factory(is_archived=True)
+    user = user_factory(email="archived-remove-member@test.com")
+    project_member_factory(project=project, user=user)
+
+    with pytest.raises(NotFoundError) as exc_info:
+        ProjectMemberService.remove_member_from_project(project.id, user.id)
+
+    assert exc_info.value.message == "Project not found or is archived"
+
+

@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from app.config import Config
 from app.extensions import db, migrate
 from app.api.health import health_bp
+from app.api.project_member_routes import project_member_bp
 from app.api.project_routes import project_bp
 from app.api.user_routes import user_bp
 from app.api.error_handlers import register_error_handlers
@@ -25,6 +26,7 @@ def create_app(config_override=None):
 
     flask_app.register_blueprint(health_bp)
     flask_app.register_blueprint(project_bp)
+    flask_app.register_blueprint(project_member_bp)
     flask_app.register_blueprint(user_bp)
     register_error_handlers(flask_app)
 
