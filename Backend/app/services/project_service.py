@@ -60,6 +60,11 @@ class ProjectService:
         project.visibility = project_visibility
 
         return ProjectRepository.save(project)
+    
+    @staticmethod
+    def does_project_exist_and_active(project_id: UUID) -> bool:
+        project = ProjectRepository.get_by_id(project_id)
+        return project is not None and project.archived_at is None
 
 
             

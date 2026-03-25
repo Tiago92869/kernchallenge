@@ -1,12 +1,14 @@
 import os
 import sys
 import uuid
+from datetime import datetime
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app import create_app
 from app.extensions import db
+from app.models.project_member import ProjectMember
 from app.models.user import User
 from app.services.project_service import ProjectService
 
@@ -36,12 +38,13 @@ def user_factory(app):
             last_name="Martins",
             email="tiagomartins123@gmail.com",
             password="password123",
+            is_active=True,
     ):
         user = User(
             first_name=first_name,
             last_name=last_name,
             email=email,
-            is_active=True
+            is_active=is_active
         )
         user.set_password(password)
 
@@ -99,15 +102,53 @@ def project_factory(app, user_factory):
             owner=None,
             name="TimeSync",
             description="Main project",
-            visibility="PRIVATE"
+            visibility="PRIVATE",
+            is_archived=False,
+            archived_at=None,
     ):
         if owner is None:
             owner = user_factory()
 
-        return ProjectService.create_project(
+        project = ProjectService.create_project(
             owner_id=owner.id,
             name=name,
             description=description,
             visibility=visibility
         )
+
+        if archived_at is not None or is_archived:
+            project.is_archived = is_archived
+            project.archived_at = archived_at or datetime.now()
+            db.session.commit()
+
+        return project
     return create_project
+
+@pytest.fixture
+def project_member_factory(app, project_factory, user_factory):
+    def create_project_member(
+            project=None,
+            user=None,
+            added_by_user=None,
+            removed_at=None,
+            removed_by_user=None,
+    ):
+        if project is None:
+            project = project_factory()
+
+        if user is None:
+            user = user_factory()
+
+        project_member = ProjectMember(
+            project_id=project.id,
+            user_id=user.id,
+            added_by_user_id=added_by_user.id if added_by_user else None,
+            removed_at=removed_at,
+            removed_by_user_id=removed_by_user.id if removed_by_user else None,
+        )
+
+        db.session.add(project_member)
+        db.session.commit()
+        return project_member
+
+    return create_project_member

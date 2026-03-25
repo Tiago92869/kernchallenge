@@ -244,3 +244,23 @@ def test_get_all_users_with_search_with_is_active_invalid_filter(client, multipl
         UserService.get_all_users(search="E", is_active="invalid")
 
     assert exc_info.value.message == "Invalid is_active filter"
+
+def test_does_user_exist_and_active_returns_true(user_factory):
+    user_db = user_factory(email="active-user@test.com", is_active=True)
+
+    user_exists = UserService.does_user_exist_and_active(user_db.id)
+
+    assert user_exists is True
+
+def test_does_user_exist_and_active_returns_false_for_inactive_user(user_factory):
+    user_db = user_factory(email="inactive-user@test.com", is_active=False)
+
+    user_exists = UserService.does_user_exist_and_active(user_db.id)
+
+    assert user_exists is False
+
+def test_does_user_exist_and_active_returns_false_for_missing_user(app):
+    with app.app_context():
+        user_exists = UserService.does_user_exist_and_active(UUID("5540e840-e29b-41d4-a716-446655440000"))
+
+    assert user_exists is False
