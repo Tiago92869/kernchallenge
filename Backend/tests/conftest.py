@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from app import create_app
 from app.extensions import db
+from app.models.notification import Notification, NotificationType
 from app.models.project_member import ProjectMember
 from app.models.time_entry import TimeEntry
 from app.models.user import User
@@ -191,4 +192,42 @@ def time_entry_factory(app, user_factory, project_factory):
         return time_entry
 
     return create_time_entry
+
+
+@pytest.fixture
+def notification_factory(app, user_factory, project_factory):
+    def create_notification(
+            recipient_user=None,
+            actor_user=None,
+            project=None,
+            notification_type=NotificationType.ADDED,
+            message="Notification message",
+            is_read=False,
+            created_at=None,
+    ):
+        if recipient_user is None:
+            recipient_user = user_factory(email=f"recipient-{uuid.uuid4()}@test.com")
+
+        if actor_user is None:
+            actor_user = user_factory(email=f"actor-{uuid.uuid4()}@test.com")
+
+        if project is None:
+            project = project_factory(owner=actor_user)
+
+        notification = Notification(
+            recipient_user_id=recipient_user.id,
+            actor_user_id=actor_user.id,
+            project_id=project.id,
+            notification_type=notification_type,
+            message=message,
+            is_read=is_read,
+            created_at=created_at or datetime.now(),
+        )
+
+        db.session.add(notification)
+        db.session.commit()
+
+        return notification
+
+    return create_notification
 

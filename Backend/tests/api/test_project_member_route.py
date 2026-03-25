@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from app.models.notification import Notification, NotificationType
 from app.models.project_member import ProjectMember
 
 
@@ -68,7 +69,8 @@ def test_get_currently_active_members_returns_404_when_project_is_missing(client
 
 
 def test_add_project_members_returns_200(client, project_factory, user_factory):
-	project = project_factory()
+	owner = user_factory(email="route-project-owner-one@test.com", first_name="Route", last_name="Owner")
+	project = project_factory(owner=owner, name="Route Team")
 	user_one = user_factory(email="route-add-member-one@test.com")
 	user_two = user_factory(email="route-add-member-two@test.com")
 
@@ -86,6 +88,11 @@ def test_add_project_members_returns_200(client, project_factory, user_factory):
 	project_members = ProjectMember.query.filter_by(project_id=project.id).all()
 	assert len(project_members) == 2
 	assert sorted(project_member.user_id for project_member in project_members) == sorted([user_one.id, user_two.id])
+
+	notifications = Notification.query.filter_by(project_id=project.id).all()
+	assert len(notifications) == 2
+	assert all(notification.notification_type == NotificationType.ADDED for notification in notifications)
+	assert all(notification.message == '"Route Owner" just added you to "Route Team"' for notification in notifications)
 
 
 def test_add_project_members_reactivates_removed_membership(client, project_factory, user_factory, project_member_factory):
@@ -154,7 +161,8 @@ def test_add_project_members_returns_404_when_user_is_missing(client, project_fa
 
 
 def test_remove_project_member_returns_200(client, project_factory, user_factory, project_member_factory):
-	project = project_factory()
+	owner = user_factory(email="route-project-owner-two@test.com", first_name="Route", last_name="Lead")
+	project = project_factory(owner=owner, name="Route Ops")
 	user = user_factory(email="route-remove-member@test.com")
 	project_member = project_member_factory(project=project, user=user)
 
@@ -169,6 +177,11 @@ def test_remove_project_member_returns_200(client, project_factory, user_factory
 	refreshed_project_member = ProjectMember.query.filter_by(id=project_member.id).first()
 	assert refreshed_project_member.removed_at is not None
 	assert refreshed_project_member.removed_by_user_id is None
+
+	notification = Notification.query.filter_by(project_id=project.id, recipient_user_id=user.id).first()
+	assert notification is not None
+	assert notification.notification_type == NotificationType.REMOVED
+	assert notification.message.startswith('"Route Lead" just removed you from "Route Ops" at "')
 
 
 def test_remove_project_member_returns_404_when_membership_not_found(client, project_factory, user_factory):

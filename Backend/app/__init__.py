@@ -8,6 +8,7 @@ from app.api.project_member_routes import project_member_bp
 from app.api.project_routes import project_bp
 from app.api.time_entry_routes import time_entry_bp
 from app.api.user_routes import user_bp
+from app.api.notification_routes import notification_bp
 from app.api.error_handlers import register_error_handlers
 
 load_dotenv()
@@ -29,6 +30,7 @@ def create_app(config_override=None):
     flask_app.register_blueprint(project_bp)
     flask_app.register_blueprint(project_member_bp)
     flask_app.register_blueprint(time_entry_bp)
+    flask_app.register_blueprint(notification_bp)
     flask_app.register_blueprint(user_bp)
     register_error_handlers(flask_app)
 
