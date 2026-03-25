@@ -36,3 +36,18 @@ def update_project(project_id):
     return success_response(
         data=ProjectSchema.serialize_project(project)
     )
+
+
+@project_bp.patch("/<project_id>/archive")
+def change_project_archive_status(project_id):
+    data = request.get_json() or {}
+
+    project = ProjectService.change_archive_status(
+        project_id=UUID(project_id),
+        user_id=UUID(data.get("user_id")),
+        action=data.get("action"),
+    )
+
+    return success_response(
+        data=ProjectSchema.serialize_project(project)
+    )
