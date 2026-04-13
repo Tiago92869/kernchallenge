@@ -47,3 +47,11 @@ def refresh():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
     return success_response(data={"auth_token": access_token})
+
+
+@auth_bp.post("/forgot-password")
+def forgot_password():
+    data = request.get_json() or {}
+
+    UserService.reset_forgotten_password(email=data.get("email", ""))
+    return success_response(message="A new password was sent to your email")
