@@ -61,7 +61,9 @@ def test_create_notification_raises_when_project_missing(user_factory):
     assert exc_info.value.message == "Project not found"
 
 
-def test_get_notifications_by_recipient_with_filters(notification_factory, user_factory, project_factory):
+def test_get_notifications_by_recipient_with_filters(
+    notification_factory, user_factory, project_factory
+):
     owner = user_factory(email="notification-owner-filter@test.com")
     recipient = user_factory(email="notification-recipient-filter@test.com")
     project = project_factory(owner=owner, name="Filtered")
@@ -104,11 +106,10 @@ def test_get_notifications_by_recipient_with_filters(notification_factory, user_
 
 
 def test_get_notifications_by_recipient_raises_when_user_missing(app):
-    with app.app_context():
-        with pytest.raises(NotFoundError) as exc_info:
-            NotificationService.get_notifications_by_recipient(
-                recipient_user_id=UUID("550e8400-e29b-41d4-a716-446655440000")
-            )
+    with app.app_context(), pytest.raises(NotFoundError) as exc_info:
+        NotificationService.get_notifications_by_recipient(
+            recipient_user_id=UUID("550e8400-e29b-41d4-a716-446655440000")
+        )
 
     assert exc_info.value.message == "User not found"
 
@@ -135,8 +136,7 @@ def test_mark_notification_as_read_success(notification_factory):
 
 
 def test_mark_notification_as_read_raises_when_notification_missing(app):
-    with app.app_context():
-        with pytest.raises(NotFoundError) as exc_info:
-            NotificationService.mark_notification_as_read(UUID("550e8400-e29b-41d4-a716-446655440003"))
+    with app.app_context(), pytest.raises(NotFoundError) as exc_info:
+        NotificationService.mark_notification_as_read(UUID("550e8400-e29b-41d4-a716-446655440003"))
 
     assert exc_info.value.message == "Notification not found"

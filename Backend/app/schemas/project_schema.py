@@ -8,4 +8,4 @@ class ProjectSchema:
             "visibility": project.visibility.value,
             "is_archived": project.is_archived,
             "owner_id": str(project.owner_id),
-    }
+        }

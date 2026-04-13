@@ -1,20 +1,22 @@
 from app.extensions import db
 from app.models.time_entry import TimeEntry
 
-class TimeEntryRepository:
 
+class TimeEntryRepository:
     @staticmethod
-    def save(time_entry: TimeEntry) -> TimeEntry :
+    def save(time_entry: TimeEntry) -> TimeEntry:
         db.session.add(time_entry)
         db.session.commit()
         return time_entry
-    
+
     @staticmethod
     def get_time_entry_by_id(time_entry_id):
         return db.session.get(TimeEntry, time_entry_id)
-    
+
     @staticmethod
-    def get_time_entries_by_user_and_date_range_and_project(user_id=None, start_date=None, end_date=None, project_id=None, search_string=None):
+    def get_time_entries_by_user_and_date_range_and_project(
+        user_id=None, start_date=None, end_date=None, project_id=None, search_string=None
+    ):
         query = TimeEntry.query.filter(TimeEntry.deleted_at.is_(None))
 
         if user_id:

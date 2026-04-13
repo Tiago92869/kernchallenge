@@ -1,8 +1,8 @@
 from app.extensions import db
 from app.models.user import User
 
-class UserRepository:
 
+class UserRepository:
     @staticmethod
     def save(user: User) -> User:
         db.session.add(user)
@@ -16,7 +16,7 @@ class UserRepository:
     @staticmethod
     def get_by_id(user_id):
         return db.session.get(User, user_id)
-    
+
     @staticmethod
     def get_all(search, is_active):
         query = User.query
@@ -27,7 +27,7 @@ class UserRepository:
                 db.or_(
                     User.first_name.ilike(search_pattern),
                     User.last_name.ilike(search_pattern),
-                    User.email.ilike(search_pattern)
+                    User.email.ilike(search_pattern),
                 )
             )
 

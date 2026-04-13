@@ -1,3 +1,6 @@
+from app.api.responses import success_response
+from app.schemas.user_schema import UserSchema
+from app.services.user_service import UserService
 from flask import Blueprint, request
 from flask_jwt_extended import (
     create_access_token,
@@ -6,10 +9,6 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
 )
-
-from app.api.responses import success_response
-from app.schemas.user_schema import UserSchema
-from app.services.user_service import UserService
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 

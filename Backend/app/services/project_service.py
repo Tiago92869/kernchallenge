@@ -1,8 +1,10 @@
 from datetime import datetime
 from uuid import UUID
+
+from app.api.errors import ForbiddenError, NotFoundError, ValidationError
 from app.models.project import Project, ProjectVisibility
 from app.repositories.project_repository import ProjectRepository
-from app.api.errors import ForbiddenError, NotFoundError, ValidationError
+
 
 class ProjectService:
     @staticmethod
@@ -18,7 +20,7 @@ class ProjectService:
 
         if not normalized_name:
             raise ValidationError(message="Project name is required")
-        
+
         try:
             project_visibility = ProjectVisibility[visibility.upper()]
         except KeyError as exc:
@@ -28,11 +30,11 @@ class ProjectService:
             name=normalized_name,
             description=description.strip() if description else None,
             visibility=project_visibility,
-            owner_id=owner_id
+            owner_id=owner_id,
         )
 
         return ProjectRepository.save(project)
-    
+
     @staticmethod
     def updateProject(
         *,
@@ -50,7 +52,7 @@ class ProjectService:
 
         if not normalized_name:
             raise ValidationError(message="Project name is required")
-        
+
         try:
             project_visibility = ProjectVisibility[visibility.upper()]
         except KeyError as exc:
@@ -61,7 +63,7 @@ class ProjectService:
         project.visibility = project_visibility
 
         return ProjectRepository.save(project)
-    
+
     @staticmethod
     def does_project_exist_and_active(project_id: UUID) -> bool:
         project = ProjectRepository.get_by_id(project_id)
@@ -97,6 +99,3 @@ class ProjectService:
             project.archived_reason = None
 
         return ProjectRepository.save(project)
-
-
-            

@@ -1,7 +1,7 @@
-from werkzeug.exceptions import HTTPException
-
 from app.api.errors import ApiError
 from app.api.responses import error_response
+from werkzeug.exceptions import HTTPException
+
 
 def register_error_handlers(app):
     @app.errorhandler(ApiError)
@@ -12,7 +12,7 @@ def register_error_handlers(app):
             details=error.details,
             status_code=error.status_code,
         )
-    
+
     @app.errorhandler(HTTPException)
     def handle_http_exception(error):
         return error_response(
@@ -20,7 +20,7 @@ def register_error_handlers(app):
             message=error.description,
             status_code=error.code,
         )
-    
+
     @app.errorhandler(Exception)
     def handle_unexpected_error(error):
         return error_response(
@@ -28,4 +28,3 @@ def register_error_handlers(app):
             message="An unexpected error occurred",
             status_code=500,
         )
-    

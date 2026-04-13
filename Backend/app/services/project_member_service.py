@@ -2,18 +2,18 @@ from datetime import datetime
 from uuid import UUID
 
 from app.api.errors import NotFoundError
+from app.models.notification import NotificationType
 from app.models.project_member import ProjectMember
 from app.repositories.project_member_repository import ProjectMemberRepository
 from app.repositories.project_repository import ProjectRepository
-from app.services.user_service import UserService
-from app.services.project_service import ProjectService
 from app.services.notification_service import NotificationService
-from app.models.notification import NotificationType
+from app.services.project_service import ProjectService
+from app.services.user_service import UserService
+
 
 class ProjectMemberService:
-
     @staticmethod
-    def add_member_to_project(project_id:UUID, users_ids:list[UUID]) :
+    def add_member_to_project(project_id: UUID, users_ids: list[UUID]):
 
         if not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
@@ -90,5 +90,3 @@ class ProjectMemberService:
             raise NotFoundError(message="Project not found or is archived")
 
         return ProjectMemberRepository.get_currently_active_members(project_id)
-            
-            
