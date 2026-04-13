@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 from uuid import UUID
 
 from app.api.errors import ForbiddenError, NotFoundError, ValidationError
@@ -99,3 +100,52 @@ class ProjectService:
             project.archived_reason = None
 
         return ProjectRepository.save(project)
+
+    @staticmethod
+    def list_available_projects(
+        *,
+        user_id: UUID,
+        search: str | None = None,
+        my_projects: bool = False,
+    ):
+        projects = ProjectRepository.list_available_projects(
+            user_id=user_id,
+            search=search,
+            my_projects=my_projects,
+        )
+
+        serialized_projects = []
+        for project in projects:
+            members = []
+            for project_member in project.project_members:
+                if project_member.removed_at is not None:
+                    continue
+
+                user = project_member.user
+                if not user or not user.is_active:
+                    continue
+
+                members.append(
+                    SimpleNamespace(
+                        id=user.id,
+                        first_name=user.first_name,
+                        last_name=user.last_name,
+                        email=user.email,
+                    )
+                )
+
+            serialized_projects.append(
+                SimpleNamespace(
+                    id=project.id,
+                    name=project.name,
+                    visibility=project.visibility,
+                    is_archived=project.is_archived,
+                    is_owner=project.owner_id == user_id,
+                    number_of_members=len(members),
+                    created_at=project.created_at,
+                    last_entry_at=project.last_entry_added_at,
+                    members=members,
+                )
+            )
+
+        return serialized_projects
