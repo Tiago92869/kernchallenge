@@ -1,10 +1,13 @@
 from uuid import UUID
+import secrets
+import string
 
 from app.api.errors import NotFoundError, ValidationError
 from app.models.revoked_token import RevokedToken
 from app.models.user import User
 from app.repositories.revoked_token_repository import RevokedTokenRepository
 from app.repositories.user_repository import UserRepository
+from app.services.email_service import EmailService
 
 class UserService:
     @staticmethod
@@ -177,3 +180,31 @@ class UserService:
     @staticmethod
     def is_token_revoked(jti: str) -> bool:
         return RevokedTokenRepository.exists_by_jti(jti)
+
+    @staticmethod
+    def generate_temporary_password(length: int = 12) -> str:
+        if length < 8:
+            raise ValidationError(message="Temporary password length is too short")
+
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        return "".join(secrets.choice(alphabet) for _ in range(length))
+
+    @staticmethod
+    def reset_forgotten_password(*, email: str) -> None:
+        normalized_email = (email or "").strip()
+
+        if not UserService.check_email_format(normalized_email):
+            raise ValidationError(message="Invalid email format")
+
+        user = UserRepository.get_by_email(normalized_email)
+        if not user:
+            raise NotFoundError(message="User not found")
+
+        temporary_password = UserService.generate_temporary_password()
+        user.set_password(temporary_password)
+        UserRepository.save(user)
+
+        EmailService.send_password_reset_email(
+            to_email=user.email,
+            temporary_password=temporary_password,
+        )

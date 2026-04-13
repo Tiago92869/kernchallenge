@@ -347,3 +347,56 @@ def test_does_user_exist_and_active_returns_false_for_missing_user(app):
         user_exists = UserService.does_user_exist_and_active(UUID("5540e840-e29b-41d4-a716-446655440000"))
 
     assert user_exists is False
+
+
+def test_reset_forgotten_password_success(user_factory, monkeypatch):
+    user_db = user_factory(email="reset@test.com", password="password123", is_active=True)
+    sent_payload = {}
+
+    def fake_send_password_reset_email(*, to_email, temporary_password):
+        sent_payload["to_email"] = to_email
+        sent_payload["temporary_password"] = temporary_password
+
+    monkeypatch.setattr(
+        "app.services.user_service.EmailService.send_password_reset_email",
+        fake_send_password_reset_email,
+    )
+
+    UserService.reset_forgotten_password(email="reset@test.com")
+
+    assert sent_payload["to_email"] == "reset@test.com"
+    assert sent_payload["temporary_password"]
+    assert user_db.check_password(sent_payload["temporary_password"]) is True
+
+
+def test_reset_forgotten_password_with_invalid_email_format(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.user_service.EmailService.send_password_reset_email",
+        lambda **kwargs: None,
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.reset_forgotten_password(email="invalid-email")
+
+    assert exc_info.value.message == "Invalid email format"
+
+
+def test_reset_forgotten_password_user_not_found(app, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.user_service.EmailService.send_password_reset_email",
+        lambda **kwargs: None,
+    )
+
+    with app.app_context():
+        with pytest.raises(NotFoundError) as exc_info:
+            UserService.reset_forgotten_password(email="missing@test.com")
+
+    assert exc_info.value.message == "User not found"
+
+
+def test_generate_temporary_password_fails_when_too_short():
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.generate_temporary_password(length=6)
+
+    assert exc_info.value.message == "Temporary password length is too short"
+
