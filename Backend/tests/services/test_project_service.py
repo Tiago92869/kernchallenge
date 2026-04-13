@@ -3,7 +3,9 @@ from uuid import UUID
 import pytest
 
 from app.api.errors import ForbiddenError, NotFoundError, ValidationError
+from app.extensions import db
 from app.models.project import ProjectVisibility
+from app.models.project_member import ProjectMember
 from app.services.project_service import ProjectService
 
 
@@ -196,3 +198,66 @@ def test_change_archive_status_rejects_when_user_not_owner(project_factory, user
         )
 
     assert exc_info.value.message == "User is not the project owner"
+
+
+def test_list_available_projects_returns_public_and_owned(
+    user_factory, project_factory, project_member_factory
+):
+    current_user = user_factory(email="current-user@test.com")
+    another_user = user_factory(email="another-user@test.com")
+
+    owned_private_project = project_factory(owner=current_user, name="Owned Private")
+    public_project = project_factory(
+        owner=another_user,
+        name="Public Project",
+        visibility="PUBLIC",
+    )
+    project_factory(owner=another_user, name="Other Private", visibility="PRIVATE")
+
+    active_member = user_factory(email="member-active@test.com")
+    removed_member = user_factory(email="member-removed@test.com")
+
+    project_member_factory(project=public_project, user=active_member)
+
+    removed_project_member = ProjectMember(
+        project_id=public_project.id,
+        user_id=removed_member.id,
+    )
+    db.session.add(removed_project_member)
+    db.session.flush()
+    removed_project_member.removed_at = owned_private_project.created_at
+    db.session.commit()
+
+    projects = ProjectService.list_available_projects(user_id=current_user.id)
+
+    project_names = [project.name for project in projects]
+    assert "Owned Private" in project_names
+    assert "Public Project" in project_names
+    assert "Other Private" not in project_names
+
+    owned_project_info = next(project for project in projects if project.name == "Owned Private")
+    assert owned_project_info.is_owner is True
+
+    public_project_info = next(project for project in projects if project.name == "Public Project")
+    assert public_project_info.is_owner is False
+    assert public_project_info.number_of_members == 1
+    assert public_project_info.members[0].email == "member-active@test.com"
+
+
+def test_list_available_projects_filters_by_search_and_my_projects(user_factory, project_factory):
+    current_user = user_factory(email="owner-search@test.com")
+    other_user = user_factory(email="other-search@test.com")
+
+    project_factory(owner=current_user, name="Alpha Owned", visibility="PRIVATE")
+    project_factory(owner=current_user, name="Beta Owned", visibility="PUBLIC")
+    project_factory(owner=other_user, name="Alpha Public", visibility="PUBLIC")
+
+    my_filtered_projects = ProjectService.list_available_projects(
+        user_id=current_user.id,
+        search="Alpha",
+        my_projects=True,
+    )
+
+    assert len(my_filtered_projects) == 1
+    assert my_filtered_projects[0].name == "Alpha Owned"
+    assert my_filtered_projects[0].is_owner is True
