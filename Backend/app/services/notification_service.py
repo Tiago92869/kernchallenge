@@ -22,7 +22,14 @@ class NotificationService:
             raise NotFoundError(message="Project not found")
 
     @staticmethod
-    def create_notification(*, recipient_user_id: UUID, actor_user_id: UUID, project_id: UUID, notification_type: NotificationType, message: str) -> Notification:
+    def create_notification(
+        *,
+        recipient_user_id: UUID,
+        actor_user_id: UUID,
+        project_id: UUID,
+        notification_type: NotificationType,
+        message: str,
+    ) -> Notification:
         NotificationService._ensure_user_exists(recipient_user_id)
         NotificationService._ensure_user_exists(actor_user_id)
         NotificationService._ensure_project_exists(project_id)
@@ -38,7 +45,13 @@ class NotificationService:
         return NotificationRepository.save(notification)
 
     @staticmethod
-    def get_notifications_by_recipient(*, recipient_user_id: UUID, search: str | None = None, created_date: date | None = None, project_id: UUID | None = None) -> list[Notification]:
+    def get_notifications_by_recipient(
+        *,
+        recipient_user_id: UUID,
+        search: str | None = None,
+        created_date: date | None = None,
+        project_id: UUID | None = None,
+    ) -> list[Notification]:
         NotificationService._ensure_user_exists(recipient_user_id)
 
         if project_id:

@@ -1,8 +1,12 @@
 from datetime import date, datetime, timedelta
 
 
-def test_get_notifications_by_recipient_returns_200(client, notification_factory, user_factory, project_factory):
-    owner = user_factory(email="route-notification-owner@test.com", first_name="Owner", last_name="One")
+def test_get_notifications_by_recipient_returns_200(
+    client, notification_factory, user_factory, project_factory
+):
+    owner = user_factory(
+        email="route-notification-owner@test.com", first_name="Owner", last_name="One"
+    )
     recipient = user_factory(email="route-notification-recipient@test.com")
     project = project_factory(owner=owner)
 
@@ -27,8 +31,12 @@ def test_get_notifications_by_recipient_returns_200(client, notification_factory
     assert body["data"][0]["recipient_user_id"] == str(recipient.id)
 
 
-def test_get_notifications_by_recipient_returns_200_with_filters(client, notification_factory, user_factory, project_factory):
-    owner = user_factory(email="route-notification-owner-filter@test.com", first_name="Owner", last_name="Two")
+def test_get_notifications_by_recipient_returns_200_with_filters(
+    client, notification_factory, user_factory, project_factory
+):
+    owner = user_factory(
+        email="route-notification-owner-filter@test.com", first_name="Owner", last_name="Two"
+    )
     recipient = user_factory(email="route-notification-recipient-filter@test.com")
     project = project_factory(owner=owner)
 

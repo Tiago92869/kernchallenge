@@ -1,13 +1,11 @@
 from datetime import date
 from uuid import UUID
 
-from flask import Blueprint, request
-
 from app.api.errors import ValidationError
 from app.api.responses import success_response
 from app.schemas.notification_schema import NotificationSchema
 from app.services.notification_service import NotificationService
-
+from flask import Blueprint, request
 
 notification_bp = Blueprint("notifications", __name__, url_prefix="/notifications")
 

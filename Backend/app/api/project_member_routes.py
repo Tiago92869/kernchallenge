@@ -1,11 +1,9 @@
 from uuid import UUID
 
-from flask import Blueprint, request
-
 from app.api.responses import success_response
 from app.schemas.project_member_schema import ProjectMemberSchema
 from app.services.project_member_service import ProjectMemberService
-
+from flask import Blueprint, request
 
 project_member_bp = Blueprint("project_members", __name__, url_prefix="/project-members")
 

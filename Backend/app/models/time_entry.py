@@ -1,8 +1,10 @@
 import uuid
-from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 
+from sqlalchemy.dialects.postgresql import UUID
+
 from app.extensions import db
+
 
 class TimeEntry(db.Model):
     __tablename__ = "time_entries"
@@ -18,10 +20,12 @@ class TimeEntry(db.Model):
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-    
-    deleted_at = db.Column(db.DateTime, nullable=True) 
+
+    deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
 
-    user = db.relationship("User",foreign_keys=[user_id],back_populates="time_entries")
-    project = db.relationship("Project",foreign_keys=[project_id],back_populates="time_entries")
-    deleted_by = db.relationship("User",foreign_keys=[deleted_by_user_id],back_populates="deleted_time_entries_actions")
+    user = db.relationship("User", foreign_keys=[user_id], back_populates="time_entries")
+    project = db.relationship("Project", foreign_keys=[project_id], back_populates="time_entries")
+    deleted_by = db.relationship(
+        "User", foreign_keys=[deleted_by_user_id], back_populates="deleted_time_entries_actions"
+    )

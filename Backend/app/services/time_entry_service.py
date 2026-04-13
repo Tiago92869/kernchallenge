@@ -1,17 +1,19 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from app.services.project_service import ProjectService
-from app.services.user_service import UserService
 from app.api.errors import NotFoundError, ValidationError
 from app.models.time_entry import TimeEntry
 from app.repositories.time_entry_repository import TimeEntryRepository
+from app.services.project_service import ProjectService
+from app.services.user_service import UserService
+
 
 class TimeEntryService:
-
     @staticmethod
-    def create_time_entry(user_id: UUID, project_id: UUID, work_date: date, duration_minutes: int, description: str) -> TimeEntry:
-        
+    def create_time_entry(
+        user_id: UUID, project_id: UUID, work_date: date, duration_minutes: int, description: str
+    ) -> TimeEntry:
+
         if duration_minutes <= 0:
             raise ValidationError(message="Hours should be a positive number")
 
@@ -22,7 +24,7 @@ class TimeEntryService:
             raise NotFoundError(message="Project not found or is archived")
 
         if not UserService.does_user_exist_and_active(user_id):
-                raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
 
         time_entry = TimeEntry(
             user_id=user_id,
@@ -33,10 +35,10 @@ class TimeEntryService:
         )
 
         return TimeEntryRepository.save(time_entry)
-    
+
     @staticmethod
     def get_time_entry_by_id(time_entry_id: UUID) -> TimeEntry:
-         
+
         time_entry = TimeEntryRepository.get_time_entry_by_id(time_entry_id)
 
         if not time_entry:
@@ -45,25 +47,27 @@ class TimeEntryService:
         return time_entry
 
     @staticmethod
-    def get_time_entries_by_user_and_date_range_and_project(user_id=None, start_date=None, end_date=None, project_id=None, search_string=None) -> list[TimeEntry]:
-        
+    def get_time_entries_by_user_and_date_range_and_project(
+        user_id=None, start_date=None, end_date=None, project_id=None, search_string=None
+    ) -> list[TimeEntry]:
+
         if project_id and not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
 
         if user_id and not UserService.does_user_exist_and_active(user_id):
-                raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
 
         if start_date and end_date and start_date > end_date:
             raise ValidationError(message="Start date should be before end date")
-        
+
         return TimeEntryRepository.get_time_entries_by_user_and_date_range_and_project(
             user_id=user_id,
             start_date=start_date,
             end_date=end_date,
             project_id=project_id,
-            search_string=search_string
+            search_string=search_string,
         )
-    
+
     @staticmethod
     def update_time_entry_by_id(
         time_entry_id: UUID,
@@ -91,7 +95,7 @@ class TimeEntryService:
             raise NotFoundError(message="Project not found or is archived")
 
         if not UserService.does_user_exist_and_active(user_id):
-                raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
 
         time_entry.project_id = project_id
         time_entry.description = description
@@ -109,8 +113,8 @@ class TimeEntryService:
 
         if time_entry.user_id != user_id:
             raise NotFoundError(message="You do not have permission to delete this time entry")
-        
+
         time_entry.deleted_at = datetime.now()
-        #TODO missing deleted_by_user_id once auth context exists.
+        # TODO missing deleted_by_user_id once auth context exists.
 
         TimeEntryRepository.save(time_entry)

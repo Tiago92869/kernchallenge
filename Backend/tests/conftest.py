@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 from datetime import datetime
+
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -17,11 +18,13 @@ from app.services.project_service import ProjectService
 
 @pytest.fixture
 def app():
-    app = create_app({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-    })
+    app = create_app(
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+        }
+    )
 
     with app.app_context():
         db.create_all()
@@ -29,44 +32,43 @@ def app():
         db.session.remove()
         db.drop_all()
 
+
 @pytest.fixture
 def client(app):
     return app.test_client()
 
+
 @pytest.fixture
 def user_factory(app):
     def create_user(
-            first_name="Tiago",
-            last_name="Martins",
-            email="tiagomartins123@gmail.com",
-            password="password123",
-            is_active=True,
+        first_name="Tiago",
+        last_name="Martins",
+        email="tiagomartins123@gmail.com",
+        password="password123",
+        is_active=True,
     ):
-        user = User(
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            is_active=is_active
-        )
+        user = User(first_name=first_name, last_name=last_name, email=email, is_active=is_active)
         user.set_password(password)
 
         db.session.add(user)
         db.session.commit()
         return user
+
     return create_user
+
 
 @pytest.fixture
 def multiple_users_factory(app):
     def create_multiple_users(count=5, users_data=None):
         users = []
-        
+
         if users_data:
             for user_data in users_data:
                 user = User(
                     first_name=user_data.get("first_name", "User"),
                     last_name=user_data.get("last_name", "Test"),
                     email=user_data.get("email", f"user{len(users)}@test.com"),
-                    is_active=user_data.get("is_active", True)
+                    is_active=user_data.get("is_active", True),
                 )
                 user.set_password(user_data.get("password", "password123"))
                 db.session.add(user)
@@ -83,39 +85,33 @@ def multiple_users_factory(app):
             for i in range(count):
                 first, last, active = names[i % len(names)]
                 user = User(
-                    first_name=first,
-                    last_name=last,
-                    email=f"user{i}@test.com",
-                    is_active=active
+                    first_name=first, last_name=last, email=f"user{i}@test.com", is_active=active
                 )
                 user.set_password("password123")
                 db.session.add(user)
                 users.append(user)
-        
+
         db.session.commit()
         return users
-    
+
     return create_multiple_users
 
 
 @pytest.fixture
 def project_factory(app, user_factory):
     def create_project(
-            owner=None,
-            name="TimeSync",
-            description="Main project",
-            visibility="PRIVATE",
-            is_archived=False,
-            archived_at=None,
+        owner=None,
+        name="TimeSync",
+        description="Main project",
+        visibility="PRIVATE",
+        is_archived=False,
+        archived_at=None,
     ):
         if owner is None:
             owner = user_factory()
 
         project = ProjectService.create_project(
-            owner_id=owner.id,
-            name=name,
-            description=description,
-            visibility=visibility
+            owner_id=owner.id, name=name, description=description, visibility=visibility
         )
 
         if archived_at is not None or is_archived:
@@ -124,16 +120,18 @@ def project_factory(app, user_factory):
             db.session.commit()
 
         return project
+
     return create_project
+
 
 @pytest.fixture
 def project_member_factory(app, project_factory, user_factory):
     def create_project_member(
-            project=None,
-            user=None,
-            added_by_user=None,
-            removed_at=None,
-            removed_by_user=None,
+        project=None,
+        user=None,
+        added_by_user=None,
+        removed_at=None,
+        removed_by_user=None,
     ):
         if project is None:
             project = project_factory()
@@ -155,14 +153,15 @@ def project_member_factory(app, project_factory, user_factory):
 
     return create_project_member
 
+
 @pytest.fixture
 def time_entry_factory(app, user_factory, project_factory):
     def create_time_entry(
-            user=None,
-            project=None,
-            description="Worked on feature",
-            work_date=None,
-            duration_minutes=60,
+        user=None,
+        project=None,
+        description="Worked on feature",
+        work_date=None,
+        duration_minutes=60,
     ):
         if user is None:
             user = user_factory(email=f"{uuid.uuid4()}@test.com")
@@ -171,7 +170,9 @@ def time_entry_factory(app, user_factory, project_factory):
             project = project_factory(owner=user)
 
         # ensure the user is an active member of the project
-        project_member = ProjectMember.query.filter_by(project_id=project.id, user_id=user.id).first()
+        project_member = ProjectMember.query.filter_by(
+            project_id=project.id, user_id=user.id
+        ).first()
         if project_member is None:
             project_member = ProjectMember(
                 project_id=project.id,
@@ -197,13 +198,13 @@ def time_entry_factory(app, user_factory, project_factory):
 @pytest.fixture
 def notification_factory(app, user_factory, project_factory):
     def create_notification(
-            recipient_user=None,
-            actor_user=None,
-            project=None,
-            notification_type=NotificationType.ADDED,
-            message="Notification message",
-            is_read=False,
-            created_at=None,
+        recipient_user=None,
+        actor_user=None,
+        project=None,
+        notification_type=NotificationType.ADDED,
+        message="Notification message",
+        is_read=False,
+        created_at=None,
     ):
         if recipient_user is None:
             recipient_user = user_factory(email=f"recipient-{uuid.uuid4()}@test.com")
@@ -230,4 +231,3 @@ def notification_factory(app, user_factory, project_factory):
         return notification
 
     return create_notification
-

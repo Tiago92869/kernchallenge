@@ -1,10 +1,12 @@
-from flask import Blueprint, request
 from uuid import UUID
+
 from app.api.responses import success_response
-from app.services.project_service import ProjectService
 from app.schemas.project_schema import ProjectSchema
+from app.services.project_service import ProjectService
+from flask import Blueprint, request
 
 project_bp = Blueprint("projects", __name__, url_prefix="/projects")
+
 
 @project_bp.post("")
 def create_project():
@@ -16,11 +18,12 @@ def create_project():
         description=data.get("description"),
         visibility=data.get("visibility", "PRIVATE"),
     )
-    
+
     return success_response(
         data=ProjectSchema.serialize_project(project),
         status_code=201,
     )
+
 
 @project_bp.put("/<project_id>")
 def update_project(project_id):
@@ -33,9 +36,7 @@ def update_project(project_id):
         visibility=data.get("visibility", "PRIVATE"),
     )
 
-    return success_response(
-        data=ProjectSchema.serialize_project(project)
-    )
+    return success_response(data=ProjectSchema.serialize_project(project))
 
 
 @project_bp.patch("/<project_id>/archive")
@@ -48,6 +49,4 @@ def change_project_archive_status(project_id):
         action=data.get("action"),
     )
 
-    return success_response(
-        data=ProjectSchema.serialize_project(project)
-    )
+    return success_response(data=ProjectSchema.serialize_project(project))

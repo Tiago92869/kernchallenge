@@ -8,6 +8,7 @@ class ApiError(Exception):
         self.details = details
         super().__init__(self.message)
 
+
 class ValidationError(ApiError):
     status_code = 400
     error_code = "validation_error"

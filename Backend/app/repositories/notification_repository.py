@@ -16,7 +16,9 @@ class NotificationRepository:
         return db.session.get(Notification, notification_id)
 
     @staticmethod
-    def get_all_by_recipient(recipient_user_id, search=None, created_date: date | None = None, project_id=None):
+    def get_all_by_recipient(
+        recipient_user_id, search=None, created_date: date | None = None, project_id=None
+    ):
         query = Notification.query.filter(Notification.recipient_user_id == recipient_user_id)
 
         if search:
