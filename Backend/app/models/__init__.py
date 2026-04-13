@@ -3,3 +3,4 @@ from app.models.project import Project
 from app.models.project_member import ProjectMember
 from app.models.notification import Notification
 from app.models.time_entry import TimeEntry
+from app.models.revoked_token import RevokedToken

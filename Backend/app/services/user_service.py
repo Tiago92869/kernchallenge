@@ -1,7 +1,9 @@
 from uuid import UUID
 
 from app.api.errors import NotFoundError, ValidationError
+from app.models.revoked_token import RevokedToken
 from app.models.user import User
+from app.repositories.revoked_token_repository import RevokedTokenRepository
 from app.repositories.user_repository import UserRepository
 
 class UserService:
@@ -143,3 +145,35 @@ class UserService:
     def does_user_exist_and_active(user_id: UUID) -> bool:
         user = UserRepository.get_by_id(user_id)
         return user is not None and user.is_active is True
+
+    @staticmethod
+    def login(*, email: str, password: str) -> User:
+        from datetime import datetime
+
+        user = UserRepository.get_by_email(email.strip())
+
+        if not user or not user.check_password(password):
+            raise ValidationError(message="Invalid email or password")
+
+        if not user.is_active:
+            raise ValidationError(message="Account is inactive")
+
+        user.last_login_at = datetime.now()
+        UserRepository.save(user)
+
+        return user
+
+    @staticmethod
+    def logout(*, jti: str) -> None:
+        normalized_jti = (jti or "").strip()
+        if not normalized_jti:
+            raise ValidationError(message="Invalid token")
+
+        if RevokedTokenRepository.exists_by_jti(normalized_jti):
+            return
+
+        RevokedTokenRepository.save(RevokedToken(jti=normalized_jti))
+
+    @staticmethod
+    def is_token_revoked(jti: str) -> bool:
+        return RevokedTokenRepository.exists_by_jti(jti)

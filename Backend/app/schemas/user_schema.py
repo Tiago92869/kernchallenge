@@ -8,3 +8,12 @@ class UserSchema:
             "email": user.email,
             "is_active": user.is_active
         }
+    
+    @staticmethod
+    def serialize_login(auth_token, refresh_token):
+        return {
+            "auth_token": auth_token,
+            "refresh_token": refresh_token
+        }
+    
+    

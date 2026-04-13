@@ -63,3 +63,17 @@ def get_all_users():
         is_active=request.args.get("is_active"),
     )
     return success_response(data=[UserSchema.serialize_user(user) for user in users])
+
+@user_bp.get("/login")
+def login():
+    data = request.get_json() or {}
+
+    user = UserService.login(
+        email=data.get("email", ""),
+        password=data.get("password", ""),
+    )
+
+    return success_response(
+        data=UserSchema.serialize_user(user),
+        status_code=200,
+    )

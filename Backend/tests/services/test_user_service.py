@@ -3,6 +3,7 @@ import pytest
 from uuid import UUID
 from tests.conftest import user_factory
 from app.api.errors import NotFoundError, ValidationError
+from app.models.revoked_token import RevokedToken
 from app.services.user_service import UserService
 
 def test_create_user_sucess(app):
@@ -258,6 +259,88 @@ def test_does_user_exist_and_active_returns_false_for_inactive_user(user_factory
     user_exists = UserService.does_user_exist_and_active(user_db.id)
 
     assert user_exists is False
+
+
+def test_login_success(user_factory):
+    user_db = user_factory(email="login@test.com", password="password123", is_active=True)
+
+    logged_user = UserService.login(email="login@test.com", password="password123")
+
+    assert logged_user.id == user_db.id
+    assert logged_user.email == "login@test.com"
+    assert logged_user.last_login_at is not None
+
+
+def test_login_success_with_trimmed_email(user_factory):
+    user_db = user_factory(email="trimmed@test.com", password="password123", is_active=True)
+
+    logged_user = UserService.login(email="  trimmed@test.com  ", password="password123")
+
+    assert logged_user.id == user_db.id
+
+
+def test_login_fails_when_email_not_found(user_factory):
+    user_factory(email="known@test.com", password="password123", is_active=True)
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.login(email="unknown@test.com", password="password123")
+
+    assert exc_info.value.message == "Invalid email or password"
+
+
+def test_login_fails_when_password_is_wrong(user_factory):
+    user_factory(email="login@test.com", password="password123", is_active=True)
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.login(email="login@test.com", password="wrong-password")
+
+    assert exc_info.value.message == "Invalid email or password"
+
+
+def test_login_fails_when_user_is_inactive(user_factory):
+    user_factory(email="inactive-login@test.com", password="password123", is_active=False)
+
+    with pytest.raises(ValidationError) as exc_info:
+        UserService.login(email="inactive-login@test.com", password="password123")
+
+    assert exc_info.value.message == "Account is inactive"
+
+
+def test_logout_revokes_token_in_database(app):
+    with app.app_context():
+        UserService.logout(jti="token-jti-123")
+
+        token = RevokedToken.query.filter_by(jti="token-jti-123").first()
+        assert token is not None
+        assert token.jti == "token-jti-123"
+
+
+def test_logout_is_idempotent_for_existing_token(app):
+    with app.app_context():
+        UserService.logout(jti="token-jti-123")
+        UserService.logout(jti="token-jti-123")
+
+        tokens = RevokedToken.query.filter_by(jti="token-jti-123").all()
+        assert len(tokens) == 1
+
+
+def test_logout_fails_with_empty_jti(app):
+    with app.app_context():
+        with pytest.raises(ValidationError) as exc_info:
+            UserService.logout(jti="  ")
+
+        assert exc_info.value.message == "Invalid token"
+
+
+def test_is_token_revoked_returns_false_when_not_revoked(app):
+    with app.app_context():
+        assert UserService.is_token_revoked("missing-jti") is False
+
+
+def test_is_token_revoked_returns_true_when_revoked(app):
+    with app.app_context():
+        UserService.logout(jti="revoked-jti")
+        assert UserService.is_token_revoked("revoked-jti") is True
 
 def test_does_user_exist_and_active_returns_false_for_missing_user(app):
     with app.app_context():

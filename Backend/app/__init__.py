@@ -2,7 +2,8 @@ from flask import Flask
 from dotenv import load_dotenv
 
 from app.config import Config
-from app.extensions import db, migrate
+from app.extensions import db, migrate, jwt
+from app.api.auth_routes import auth_bp
 from app.api.health import health_bp
 from app.api.project_member_routes import project_member_bp
 from app.api.project_routes import project_bp
@@ -10,6 +11,7 @@ from app.api.time_entry_routes import time_entry_bp
 from app.api.user_routes import user_bp
 from app.api.notification_routes import notification_bp
 from app.api.error_handlers import register_error_handlers
+from app.services.user_service import UserService
 
 load_dotenv()
 
@@ -22,11 +24,17 @@ def create_app(config_override=None):
 
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
+    jwt.init_app(flask_app)
+
+    @jwt.token_in_blocklist_loader
+    def check_if_token_revoked(jwt_header, jwt_payload):
+        return UserService.is_token_revoked(jwt_payload["jti"])
 
     with flask_app.app_context():
         from app import models
 
     flask_app.register_blueprint(health_bp)
+    flask_app.register_blueprint(auth_bp)
     flask_app.register_blueprint(project_bp)
     flask_app.register_blueprint(project_member_bp)
     flask_app.register_blueprint(time_entry_bp)
@@ -34,4 +42,4 @@ def create_app(config_override=None):
     flask_app.register_blueprint(user_bp)
     register_error_handlers(flask_app)
 
-    return flask_app 
+    return flask_app

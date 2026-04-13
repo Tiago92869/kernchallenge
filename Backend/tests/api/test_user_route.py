@@ -307,6 +307,89 @@ def test_get_all_users_with_search_with_is_active_false_filter(client, multiple_
     assert body["success"] is True
     assert len(body["data"]) == 1
 
+
+def test_login_200_success(client, user_factory):
+    user_db = user_factory(email="login@test.com", password="password123", is_active=True)
+
+    response = client.get(
+        "/users/login",
+        json={
+            "email": user_db.email,
+            "password": "password123",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["id"] == str(user_db.id)
+    assert body["data"]["email"] == user_db.email
+
+
+def test_login_400_email_not_found(client, user_factory):
+    user_factory(email="known@test.com", password="password123", is_active=True)
+
+    response = client.get(
+        "/users/login",
+        json={
+            "email": "unknown@test.com",
+            "password": "password123",
+        },
+    )
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Invalid email or password"
+
+
+def test_login_400_wrong_password(client, user_factory):
+    user_factory(email="login@test.com", password="password123", is_active=True)
+
+    response = client.get(
+        "/users/login",
+        json={
+            "email": "login@test.com",
+            "password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Invalid email or password"
+
+
+def test_login_400_inactive_user(client, user_factory):
+    user_factory(email="inactive@test.com", password="password123", is_active=False)
+
+    response = client.get(
+        "/users/login",
+        json={
+            "email": "inactive@test.com",
+            "password": "password123",
+        },
+    )
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Account is inactive"
+
+
+def test_login_400_empty_payload(client):
+    response = client.get("/users/login", json={})
+
+    assert response.status_code == 400
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "Invalid email or password"
+
 def test_get_all_users_without_search_with_is_active_empty_filter(client, multiple_users_factory):
     multiple_users_factory()
 

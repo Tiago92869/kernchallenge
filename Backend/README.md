@@ -24,5 +24,6 @@ git branch | ForEach-Object { $_.Replace('*','').Trim() } | Where-Object { $_ -a
 Usefull command to get the test coverage of the system (keep it above 95%)
 pytest --cov=app --cov-report=term-missing --cov-report=html
 
+
 Project is only considered finished if this command passes
 pytest --cov=app --cov-fail-under=95
