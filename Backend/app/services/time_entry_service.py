@@ -1,8 +1,10 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from app.api.errors import NotFoundError, ValidationError
+from app.api.errors import ForbiddenError, NotFoundError, ValidationError
 from app.models.time_entry import TimeEntry
+from app.repositories.project_member_repository import ProjectMemberRepository
+from app.repositories.project_repository import ProjectRepository
 from app.repositories.time_entry_repository import TimeEntryRepository
 from app.services.project_service import ProjectService
 from app.services.user_service import UserService
@@ -118,3 +120,45 @@ class TimeEntryService:
         # TODO missing deleted_by_user_id once auth context exists.
 
         TimeEntryRepository.save(time_entry)
+
+    @staticmethod
+    def get_time_entries_by_project_with_role_visibility(
+        project_id: UUID,
+        user_id: UUID,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        search_string: str | None = None,
+    ) -> list[TimeEntry]:
+        """Get project time entries respecting role-based visibility rules.
+
+        Owner: sees all entries
+        Regular member: sees only their own entries
+        Non-member: denied
+        """
+        if not ProjectService.does_project_exist_and_active(project_id):
+            raise NotFoundError(message="Project not found or is archived")
+
+        if not UserService.does_user_exist_and_active(user_id):
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+
+        project = ProjectRepository.get_by_id(project_id)
+
+        is_owner = project.owner_id == user_id
+        is_member = ProjectMemberRepository.get_by_id(user_id, project_id) is not None
+
+        if not is_owner and not is_member:
+            raise ForbiddenError(message="User does not have access to this project")
+
+        owner_sees_all = is_owner
+        member_filter_user_id = None if owner_sees_all else user_id
+
+        if start_date and end_date and start_date > end_date:
+            raise ValidationError(message="Start date should be before end date")
+
+        return TimeEntryRepository.get_time_entries_by_project(
+            project_id=project_id,
+            user_id_filter=member_filter_user_id,
+            start_date=start_date,
+            end_date=end_date,
+            search_string=search_string,
+        )

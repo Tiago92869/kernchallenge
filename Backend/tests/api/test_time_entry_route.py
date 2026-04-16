@@ -358,6 +358,203 @@ def test_delete_time_entry_by_id_returns_403_when_different_user(
 
     assert response.status_code == 404
 
+
+def test_get_time_entries_by_project_owner_sees_all(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-project-owner-all@test.com")
+    member = user_factory(email="route-project-member-all@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(user=owner, project=project, description="Owner entry")
+    time_entry_factory(user=member, project=project, description="Member entry")
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={"user_id": str(owner.id)},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 2
+    descriptions = {e["description"] for e in body["data"]}
+    assert "Owner entry" in descriptions
+    assert "Member entry" in descriptions
+
+
+def test_get_time_entries_by_project_member_sees_own_only(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-project-owner-member@test.com")
+    member1 = user_factory(email="route-project-member1-view@test.com")
+    member2 = user_factory(email="route-project-member2-view@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member1)
+    project_member_factory(project=project, user=member2)
+
+    time_entry_factory(user=owner, project=project, description="Owner entry")
+    time_entry_factory(user=member1, project=project, description="Member1 entry 1")
+    time_entry_factory(user=member1, project=project, description="Member1 entry 2")
+    time_entry_factory(user=member2, project=project, description="Member2 entry")
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={"user_id": str(member1.id)},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 2
+    descriptions = {e["description"] for e in body["data"]}
+    assert "Member1 entry 1" in descriptions
+    assert "Member1 entry 2" in descriptions
+    assert "Owner entry" not in descriptions
+    assert "Member2 entry" not in descriptions
+
+
+def test_get_time_entries_by_project_denies_non_member(client, user_factory, project_factory):
+    owner = user_factory(email="route-project-owner-deny@test.com")
+    non_member = user_factory(email="route-project-non-member@test.com")
+    project = project_factory(owner=owner)
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={"user_id": str(non_member.id)},
+    )
+
+    assert response.status_code == 403
     body = response.get_json()
     assert body["success"] is False
-    assert "permission" in body["error"]["message"].lower()
+    assert "access" in body["error"]["message"].lower()
+
+
+def test_get_time_entries_by_project_with_date_filter(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-project-owner-date@test.com")
+    member = user_factory(email="route-project-member-date@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    early = date.today() - timedelta(days=5)
+    middle = date.today() - timedelta(days=2)
+
+    time_entry_factory(user=member, project=project, work_date=early, description="Early")
+    time_entry_factory(user=member, project=project, work_date=middle, description="Middle")
+    time_entry_factory(user=member, project=project, work_date=date.today(), description="Recent")
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={
+            "user_id": str(member.id),
+            "start_date": (date.today() - timedelta(days=3)).isoformat(),
+            "end_date": date.today().isoformat(),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 2
+    descriptions = {e["description"] for e in body["data"]}
+    assert "Middle" in descriptions
+    assert "Recent" in descriptions
+    assert "Early" not in descriptions
+
+
+def test_get_time_entries_by_project_with_search_filter(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-project-owner-search@test.com")
+    member = user_factory(email="route-project-member-search@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(user=member, project=project, description="Fixed dashboard bug")
+    time_entry_factory(user=member, project=project, description="Implemented API")
+    time_entry_factory(user=member, project=project, description="Updated docs")
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={
+            "user_id": str(member.id),
+            "search": "dashboard",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["description"] == "Fixed dashboard bug"
+
+
+def test_get_time_entries_by_project_excludes_deleted(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-project-owner-deleted@test.com")
+    member = user_factory(email="route-project-member-deleted@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    active = time_entry_factory(user=member, project=project, description="Active")
+    deleted = time_entry_factory(user=member, project=project, description="Deleted")
+
+    # Delete one entry via the delete endpoint
+    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(member.id)})
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={"user_id": str(member.id)},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["description"] == "Active"
+
+
+def test_get_time_entries_by_project_returns_400_missing_user_id(client, project_factory):
+    project = project_factory()
+
+    response = client.get(f"/time-entries/project/{project.id}")
+
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["success"] is False
+    assert "user_id" in body["error"]["message"].lower()
+
+
+def test_get_time_entries_by_project_returns_400_invalid_user_id(client, project_factory):
+    project = project_factory()
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={"user_id": "not-a-uuid"},
+    )
+
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["success"] is False
+    assert "user_id" in body["error"]["message"].lower()
+
+
+def test_get_time_entries_by_project_returns_404_archived_project(
+    client, user_factory, project_factory
+):
+    owner = user_factory(email="route-project-owner-archived@test.com")
+    project = project_factory(owner=owner, is_archived=True)
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        query_string={"user_id": str(owner.id)},
+    )
+
+    assert response.status_code == 404
+    body = response.get_json()
+    assert body["success"] is False
+    assert "archived" in body["error"]["message"].lower()
