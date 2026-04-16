@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
 
@@ -55,6 +55,10 @@ function LoginPage() {
         <button className="btn" type="submit" disabled={isLoading}>
           {isLoading ? 'Signing in...' : 'Sign In'}
         </button>
+
+        <p className="muted">
+          Need an account? <Link to="/signup">Create one</Link>
+        </p>
       </form>
     </div>
   )
