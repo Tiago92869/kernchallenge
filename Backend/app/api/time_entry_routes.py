@@ -6,6 +6,7 @@ from app.api.responses import success_response
 from app.schemas.time_entry_schema import TimeEntrySchema
 from app.services.time_entry_service import TimeEntryService
 from flask import Blueprint, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 time_entry_bp = Blueprint("time_entries", __name__, url_prefix="/time-entries")
 
@@ -352,6 +353,48 @@ def get_time_entry_summary_by_user_and_date_range_and_project():
     )
 
     return success_response(data=summary)
+
+
+@time_entry_bp.get("/dashboard/activity")
+@jwt_required()
+def get_dashboard_activity():
+    """Get chart-ready activity data for the authenticated user.
+    ---
+    tags:
+      - Time Entries
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: period
+        type: string
+        enum:
+          - 7d
+          - 30d
+        required: true
+        description: Last 7 or 30 days
+    responses:
+      200:
+        description: Dashboard activity returned
+      400:
+        description: Validation error
+      401:
+        description: Missing or invalid auth token
+      404:
+        description: Authenticated user not found or inactive
+    """
+    period = request.args.get("period")
+    if not period:
+        raise ValidationError(message="Query param 'period' is required")
+
+    user_id = UUID(get_jwt_identity())
+
+    activity = TimeEntryService.get_dashboard_activity_for_user(
+        user_id=user_id,
+        period=period,
+    )
+
+    return success_response(data=activity)
 
 
 @time_entry_bp.put("/<time_entry_id>")

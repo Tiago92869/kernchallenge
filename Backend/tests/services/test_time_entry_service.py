@@ -730,3 +730,95 @@ def test_get_time_entry_summary_excludes_deleted_entries(
     assert active.id is not None
     assert summary["total_entries"] == 1
     assert summary["total_minutes"] == 50
+
+
+def test_get_dashboard_activity_for_user_supports_7d(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="dashboard-7d-user@test.com")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today(),
+        duration_minutes=120,
+        description="Today",
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today() - timedelta(days=6),
+        duration_minutes=60,
+        description="6 days ago",
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today() - timedelta(days=8),
+        duration_minutes=45,
+        description="outside range",
+    )
+
+    result = TimeEntryService.get_dashboard_activity_for_user(user_id=user.id, period="7d")
+
+    assert result["period"] == "7d"
+    assert len(result["points"]) == 7
+    assert result["total_minutes"] == 180
+    assert result["total_hours"] == 3.0
+
+
+def test_get_dashboard_activity_for_user_supports_30d(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="dashboard-30d-user@test.com")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today() - timedelta(days=29),
+        duration_minutes=30,
+        description="29 days ago",
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today() - timedelta(days=30),
+        duration_minutes=90,
+        description="outside 30d",
+    )
+
+    result = TimeEntryService.get_dashboard_activity_for_user(user_id=user.id, period="30d")
+
+    assert result["period"] == "30d"
+    assert len(result["points"]) == 30
+    assert result["total_minutes"] == 30
+
+
+def test_get_dashboard_activity_for_user_excludes_deleted(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="dashboard-deleted-user@test.com")
+    project = project_factory(owner=user)
+
+    active_entry = time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today(),
+        duration_minutes=20,
+        description="active",
+    )
+    deleted_entry = time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today(),
+        duration_minutes=40,
+        description="deleted",
+    )
+    TimeEntryService.delete_time_entry_by_id(deleted_entry.id, user.id)
+
+    result = TimeEntryService.get_dashboard_activity_for_user(user_id=user.id, period="7d")
+
+    assert active_entry.id is not None
+    assert result["total_minutes"] == 20
