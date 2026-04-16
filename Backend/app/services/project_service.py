@@ -5,6 +5,7 @@ from uuid import UUID
 from app.api.errors import ForbiddenError, NotFoundError, ValidationError
 from app.models.project import Project, ProjectVisibility
 from app.repositories.project_repository import ProjectRepository
+from app.services.user_service import UserService
 
 
 class ProjectService:
@@ -149,3 +150,16 @@ class ProjectService:
             )
 
         return serialized_projects
+
+    @staticmethod
+    def get_dashboard_project_activity(*, user_id: UUID) -> dict:
+        if not UserService.does_user_exist_and_active(user_id):
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+
+        owner_projects = ProjectRepository.list_recent_owned_projects(user_id=user_id, limit=3)
+        my_projects = ProjectRepository.list_recent_member_projects(user_id=user_id, limit=3)
+
+        return {
+            "my_projects": my_projects,
+            "owner_projects": owner_projects,
+        }

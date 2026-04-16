@@ -37,3 +37,30 @@ class ProjectSchema:
         return lambda projects_list: [
             ProjectSchema.serialize_project_info(project) for project in projects_list
         ]
+
+    @staticmethod
+    def serialize_dashboard_project(project):
+        return {
+            "id": str(project.id),
+            "name": project.name,
+            "visibility": project.visibility.value,
+            "is_archived": project.is_archived,
+            "owner_id": str(project.owner_id),
+            "updated_at": project.updated_at.isoformat(),
+            "last_entry_at": project.last_entry_added_at.isoformat()
+            if project.last_entry_added_at
+            else None,
+        }
+
+    @staticmethod
+    def serialize_dashboard_project_activity(payload):
+        return {
+            "my_projects": [
+                ProjectSchema.serialize_dashboard_project(project)
+                for project in payload["my_projects"]
+            ],
+            "owner_projects": [
+                ProjectSchema.serialize_dashboard_project(project)
+                for project in payload["owner_projects"]
+            ],
+        }

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -261,3 +262,45 @@ def test_list_available_projects_filters_by_search_and_my_projects(user_factory,
     assert len(my_filtered_projects) == 1
     assert my_filtered_projects[0].name == "Alpha Owned"
     assert my_filtered_projects[0].is_owner is True
+
+
+def test_get_dashboard_project_activity_splits_owned_and_member_projects(
+    user_factory, project_factory, project_member_factory
+):
+    current_user = user_factory(email="dashboard-projects-current@test.com")
+    other_owner = user_factory(email="dashboard-projects-other-owner@test.com")
+
+    owner_projects = [project_factory(owner=current_user, name=f"Owned {i}") for i in range(4)]
+    member_projects = [project_factory(owner=other_owner, name=f"Member {i}") for i in range(4)]
+
+    for index, project in enumerate(owner_projects):
+        project.updated_at = datetime.now() - timedelta(days=index)
+    for index, project in enumerate(member_projects):
+        project.updated_at = datetime.now() - timedelta(days=index)
+        project_member_factory(project=project, user=current_user)
+    db.session.commit()
+
+    payload = ProjectService.get_dashboard_project_activity(user_id=current_user.id)
+
+    assert len(payload["owner_projects"]) == 3
+    assert len(payload["my_projects"]) == 3
+    assert all(project.owner_id == current_user.id for project in payload["owner_projects"])
+    assert all(project.owner_id != current_user.id for project in payload["my_projects"])
+
+
+def test_get_dashboard_project_activity_keeps_archived_projects_visible(
+    user_factory, project_factory, project_member_factory
+):
+    current_user = user_factory(email="dashboard-projects-archived-current@test.com")
+    other_owner = user_factory(email="dashboard-projects-archived-owner@test.com")
+
+    owned_archived = project_factory(owner=current_user, name="Owned Archived", is_archived=True)
+    member_archived = project_factory(owner=other_owner, name="Member Archived", is_archived=True)
+    project_member_factory(project=member_archived, user=current_user)
+
+    payload = ProjectService.get_dashboard_project_activity(user_id=current_user.id)
+
+    owner_names = [project.name for project in payload["owner_projects"]]
+    member_names = [project.name for project in payload["my_projects"]]
+    assert "Owned Archived" in owner_names
+    assert "Member Archived" in member_names

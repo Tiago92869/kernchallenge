@@ -1,3 +1,17 @@
+from datetime import datetime, timedelta
+
+from app.extensions import db
+
+
+def _login_and_get_access_token(client, email, password="password123"):
+    response = client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert response.status_code == 200
+    return response.get_json()["data"]["auth_token"]
+
+
 def test_create_project_returns_201(client, user_factory):
     owner = user_factory()
 
@@ -308,3 +322,73 @@ def test_list_projects_returns_400_when_my_projects_is_invalid(client, user_fact
     body = response.get_json()
     assert body["success"] is False
     assert body["error"]["message"] == "Invalid 'my_projects' value. Use true or false"
+
+
+def test_get_project_dashboard_activity_returns_split_recent_projects(
+    client, user_factory, project_factory, project_member_factory
+):
+    current_user = user_factory(email="route-dashboard-projects-current@test.com")
+    other_owner = user_factory(email="route-dashboard-projects-other-owner@test.com")
+
+    owned_projects = [project_factory(owner=current_user, name=f"Owned {i}") for i in range(4)]
+    member_projects = [project_factory(owner=other_owner, name=f"Member {i}") for i in range(4)]
+
+    for index, project in enumerate(owned_projects):
+        project.updated_at = datetime.now() - timedelta(days=index)
+    for index, project in enumerate(member_projects):
+        project.updated_at = datetime.now() - timedelta(days=index)
+        project_member_factory(project=project, user=current_user)
+    db.session.commit()
+
+    access_token = _login_and_get_access_token(client, email=current_user.email)
+
+    response = client.get(
+        "/projects/dashboard/activity",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert "my_projects" in body["data"]
+    assert "owner_projects" in body["data"]
+    assert len(body["data"]["my_projects"]) == 3
+    assert len(body["data"]["owner_projects"]) == 3
+    assert all(
+        project["owner_id"] != str(current_user.id) for project in body["data"]["my_projects"]
+    )
+    assert all(
+        project["owner_id"] == str(current_user.id) for project in body["data"]["owner_projects"]
+    )
+
+
+def test_get_project_dashboard_activity_includes_archived_projects(
+    client, user_factory, project_factory, project_member_factory
+):
+    current_user = user_factory(email="route-dashboard-projects-archived-current@test.com")
+    other_owner = user_factory(email="route-dashboard-projects-archived-owner@test.com")
+
+    project_factory(owner=current_user, name="Owned Archived", is_archived=True)
+    member_archived = project_factory(owner=other_owner, name="Member Archived", is_archived=True)
+    project_member_factory(project=member_archived, user=current_user)
+
+    access_token = _login_and_get_access_token(client, email=current_user.email)
+
+    response = client.get(
+        "/projects/dashboard/activity",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    owned_names = [project["name"] for project in body["data"]["owner_projects"]]
+    member_names = [project["name"] for project in body["data"]["my_projects"]]
+    assert "Owned Archived" in owned_names
+    assert "Member Archived" in member_names
+
+
+def test_get_project_dashboard_activity_returns_401_without_token(client):
+    response = client.get("/projects/dashboard/activity")
+
+    assert response.status_code == 401
