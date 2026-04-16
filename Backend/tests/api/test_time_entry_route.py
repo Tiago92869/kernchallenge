@@ -15,16 +15,17 @@ def _login_and_get_access_token(client, email, password="password123"):
 def test_create_time_entry_returns_201(client, user_factory, project_factory):
     user = user_factory(email="route-time-entry-create-user@test.com")
     project = project_factory()
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.post(
         "/time-entries",
         json={
-            "user_id": str(user.id),
             "project_id": str(project.id),
             "description": "Worked on route",
             "date": date.today().isoformat(),
             "hours": 90,
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 201
@@ -40,16 +41,17 @@ def test_create_time_entry_returns_201(client, user_factory, project_factory):
 def test_create_time_entry_returns_400_for_invalid_date(client, user_factory, project_factory):
     user = user_factory(email="route-time-entry-invalid-date-user@test.com")
     project = project_factory()
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.post(
         "/time-entries",
         json={
-            "user_id": str(user.id),
             "project_id": str(project.id),
             "description": "Worked on route",
             "date": "31-12-2026",
             "hours": 90,
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -62,16 +64,17 @@ def test_create_time_entry_returns_400_for_invalid_date(client, user_factory, pr
 def test_create_time_entry_returns_400_for_invalid_hours(client, user_factory, project_factory):
     user = user_factory(email="route-time-entry-invalid-hours-user@test.com")
     project = project_factory()
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.post(
         "/time-entries",
         json={
-            "user_id": str(user.id),
             "project_id": str(project.id),
             "description": "Worked on route",
             "date": date.today().isoformat(),
             "hours": 0,
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -84,16 +87,17 @@ def test_create_time_entry_returns_400_for_invalid_hours(client, user_factory, p
 def test_create_time_entry_returns_400_for_future_date(client, user_factory, project_factory):
     user = user_factory(email="route-time-entry-future-date-user@test.com")
     project = project_factory()
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.post(
         "/time-entries",
         json={
-            "user_id": str(user.id),
             "project_id": str(project.id),
             "description": "Worked on route",
             "date": (date.today() + timedelta(days=1)).isoformat(),
             "hours": 30,
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -106,16 +110,17 @@ def test_create_time_entry_returns_400_for_future_date(client, user_factory, pro
 def test_create_time_entry_returns_404_for_archived_project(client, user_factory, project_factory):
     user = user_factory(email="route-time-entry-archived-project-user@test.com")
     project = project_factory(is_archived=True)
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.post(
         "/time-entries",
         json={
-            "user_id": str(user.id),
             "project_id": str(project.id),
             "description": "Worked on route",
             "date": date.today().isoformat(),
             "hours": 30,
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 404
@@ -125,26 +130,15 @@ def test_create_time_entry_returns_404_for_archived_project(client, user_factory
     assert body["error"]["message"] == "Project not found or is archived"
 
 
-def test_create_time_entry_returns_404_for_inactive_user(client, user_factory, project_factory):
+def test_create_time_entry_returns_401_for_inactive_user_token(client, user_factory):
     user = user_factory(email="route-time-entry-inactive-user@test.com", is_active=False)
-    project = project_factory()
 
     response = client.post(
-        "/time-entries",
-        json={
-            "user_id": str(user.id),
-            "project_id": str(project.id),
-            "description": "Worked on route",
-            "date": date.today().isoformat(),
-            "hours": 30,
-        },
+        "/auth/login",
+        json={"email": user.email, "password": "password123"},
     )
 
-    assert response.status_code == 404
-
-    body = response.get_json()
-    assert body["success"] is False
-    assert body["error"]["message"] == f"User with id {user.id} not found or is not active"
+    assert response.status_code == 400
 
 
 def test_get_time_entry_by_id_returns_200(client, time_entry_factory):
@@ -181,15 +175,16 @@ def test_get_time_entries_with_filters_returns_200(
     time_entry_factory(
         user=user, project=project, work_date=date.today() - timedelta(days=1), description="Newer"
     )
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.get(
         "/time-entries",
         query_string={
-            "user_id": str(user.id),
             "project_id": str(project.id),
             "start_date": (date.today() - timedelta(days=3)).isoformat(),
             "end_date": date.today().isoformat(),
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -199,12 +194,15 @@ def test_get_time_entries_with_filters_returns_200(
     assert len(body["data"]) == 2
 
 
-def test_get_time_entries_with_filters_returns_400_for_invalid_start_date(client):
+def test_get_time_entries_with_filters_returns_400_for_invalid_start_date(client, user_factory):
+    user = user_factory(email="route-time-entry-invalid-start-date@test.com")
+    access_token = _login_and_get_access_token(client, email=user.email)
     response = client.get(
         "/time-entries",
         query_string={
             "start_date": "2026/03/25",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -214,12 +212,15 @@ def test_get_time_entries_with_filters_returns_400_for_invalid_start_date(client
     assert body["error"]["message"] == "Invalid start_date format, expected YYYY-MM-DD"
 
 
-def test_get_time_entries_with_filters_returns_400_for_invalid_end_date(client):
+def test_get_time_entries_with_filters_returns_400_for_invalid_end_date(client, user_factory):
+    user = user_factory(email="route-time-entry-invalid-end-date@test.com")
+    access_token = _login_and_get_access_token(client, email=user.email)
     response = client.get(
         "/time-entries",
         query_string={
             "end_date": "2026/03/25",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -229,13 +230,16 @@ def test_get_time_entries_with_filters_returns_400_for_invalid_end_date(client):
     assert body["error"]["message"] == "Invalid end_date format, expected YYYY-MM-DD"
 
 
-def test_get_time_entries_with_filters_returns_400_for_start_after_end(client):
+def test_get_time_entries_with_filters_returns_400_for_start_after_end(client, user_factory):
+    user = user_factory(email="route-time-entry-start-after-end@test.com")
+    access_token = _login_and_get_access_token(client, email=user.email)
     response = client.get(
         "/time-entries",
         query_string={
             "start_date": date.today().isoformat(),
             "end_date": (date.today() - timedelta(days=1)).isoformat(),
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -245,14 +249,19 @@ def test_get_time_entries_with_filters_returns_400_for_start_after_end(client):
     assert body["error"]["message"] == "Start date should be before end date"
 
 
-def test_get_time_entries_with_filters_returns_404_for_archived_project(client, project_factory):
+def test_get_time_entries_with_filters_returns_404_for_archived_project(
+    client, project_factory, user_factory
+):
     project = project_factory(is_archived=True)
+    owner = project.owner
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.get(
         "/time-entries",
         query_string={
             "project_id": str(project.id),
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 404
@@ -262,35 +271,25 @@ def test_get_time_entries_with_filters_returns_404_for_archived_project(client, 
     assert body["error"]["message"] == "Project not found or is archived"
 
 
-def test_get_time_entries_with_filters_returns_404_for_inactive_user(client, user_factory):
-    user = user_factory(email="route-time-entry-filter-inactive-user@test.com", is_active=False)
+def test_get_time_entries_with_filters_returns_401_without_token(client):
+    response = client.get("/time-entries")
 
-    response = client.get(
-        "/time-entries",
-        query_string={
-            "user_id": str(user.id),
-        },
-    )
-
-    assert response.status_code == 404
-
-    body = response.get_json()
-    assert body["success"] is False
-    assert body["error"]["message"] == f"User with id {user.id} not found or is not active"
+    assert response.status_code == 401
 
 
 def test_update_time_entry_returns_200(client, time_entry_factory):
     time_entry = time_entry_factory(description="Before update", duration_minutes=60)
+    access_token = _login_and_get_access_token(client, email=time_entry.user.email)
 
     response = client.put(
         f"/time-entries/{time_entry.id}",
         json={
-            "user_id": str(time_entry.user_id),
             "project_id": str(time_entry.project_id),
             "description": "After update",
             "date": date.today().isoformat(),
             "hours": 120,
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -306,16 +305,17 @@ def test_update_time_entry_returns_403_when_different_user(
 ):
     time_entry = time_entry_factory(description="Before update")
     different_user = user_factory(email="route-time-entry-update-different-user@test.com")
+    access_token = _login_and_get_access_token(client, email=different_user.email)
 
     response = client.put(
         f"/time-entries/{time_entry.id}",
         json={
-            "user_id": str(different_user.id),
             "project_id": str(time_entry.project_id),
             "description": "Unauthorized update",
             "date": date.today().isoformat(),
             "hours": 60,
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 404
@@ -327,9 +327,11 @@ def test_update_time_entry_returns_403_when_different_user(
 
 def test_delete_time_entry_by_id_returns_200(client, time_entry_factory):
     time_entry = time_entry_factory(description="Delete from route")
+    access_token = _login_and_get_access_token(client, email=time_entry.user.email)
 
     response = client.delete(
-        f"/time-entries/{time_entry.id}", json={"user_id": str(time_entry.user_id)}
+        f"/time-entries/{time_entry.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -342,17 +344,10 @@ def test_delete_time_entry_by_id_returns_200(client, time_entry_factory):
     assert refreshed.deleted_at is not None
 
 
-def test_delete_time_entry_by_id_returns_404(client):
-    response = client.delete(
-        "/time-entries/550e8400-e29b-41d4-a716-446655440000",
-        json={"user_id": "550e8400-e29b-41d4-a716-446655440001"},
-    )
+def test_delete_time_entry_by_id_returns_401_without_token(client):
+    response = client.delete("/time-entries/550e8400-e29b-41d4-a716-446655440000")
 
-    assert response.status_code == 404
-
-    body = response.get_json()
-    assert body["success"] is False
-    assert body["error"]["message"] == "Time entry not found"
+    assert response.status_code == 401
 
 
 def test_delete_time_entry_by_id_returns_403_when_different_user(
@@ -360,9 +355,11 @@ def test_delete_time_entry_by_id_returns_403_when_different_user(
 ):
     time_entry = time_entry_factory(description="Delete from route")
     different_user = user_factory(email="route-time-entry-delete-different-user@test.com")
+    access_token = _login_and_get_access_token(client, email=different_user.email)
 
     response = client.delete(
-        f"/time-entries/{time_entry.id}", json={"user_id": str(different_user.id)}
+        f"/time-entries/{time_entry.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 404
@@ -378,10 +375,11 @@ def test_get_time_entries_by_project_owner_sees_all(
 
     time_entry_factory(user=owner, project=project, description="Owner entry")
     time_entry_factory(user=member, project=project, description="Member entry")
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}",
-        query_string={"user_id": str(owner.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -407,10 +405,11 @@ def test_get_time_entries_by_project_member_sees_own_only(
     time_entry_factory(user=member1, project=project, description="Member1 entry 1")
     time_entry_factory(user=member1, project=project, description="Member1 entry 2")
     time_entry_factory(user=member2, project=project, description="Member2 entry")
+    access_token = _login_and_get_access_token(client, email=member1.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}",
-        query_string={"user_id": str(member1.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -428,10 +427,11 @@ def test_get_time_entries_by_project_denies_non_member(client, user_factory, pro
     owner = user_factory(email="route-project-owner-deny@test.com")
     non_member = user_factory(email="route-project-non-member@test.com")
     project = project_factory(owner=owner)
+    access_token = _login_and_get_access_token(client, email=non_member.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}",
-        query_string={"user_id": str(non_member.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 403
@@ -454,14 +454,15 @@ def test_get_time_entries_by_project_with_date_filter(
     time_entry_factory(user=member, project=project, work_date=early, description="Early")
     time_entry_factory(user=member, project=project, work_date=middle, description="Middle")
     time_entry_factory(user=member, project=project, work_date=date.today(), description="Recent")
+    access_token = _login_and_get_access_token(client, email=member.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}",
         query_string={
-            "user_id": str(member.id),
             "start_date": (date.today() - timedelta(days=3)).isoformat(),
             "end_date": date.today().isoformat(),
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -485,13 +486,14 @@ def test_get_time_entries_by_project_with_search_filter(
     time_entry_factory(user=member, project=project, description="Fixed dashboard bug")
     time_entry_factory(user=member, project=project, description="Implemented API")
     time_entry_factory(user=member, project=project, description="Updated docs")
+    access_token = _login_and_get_access_token(client, email=member.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}",
         query_string={
-            "user_id": str(member.id),
             "search": "dashboard",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -511,13 +513,18 @@ def test_get_time_entries_by_project_excludes_deleted(
 
     active = time_entry_factory(user=member, project=project, description="Active")
     deleted = time_entry_factory(user=member, project=project, description="Deleted")
+    member_token = _login_and_get_access_token(client, email=member.email)
 
     # Delete one entry via the delete endpoint
-    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(member.id)})
+    client.delete(
+        f"/time-entries/{deleted.id}",
+        headers={"Authorization": f"Bearer {member_token}"},
+    )
 
+    access_token = _login_and_get_access_token(client, email=member.email)
     response = client.get(
         f"/time-entries/project/{project.id}",
-        query_string={"user_id": str(member.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -527,29 +534,12 @@ def test_get_time_entries_by_project_excludes_deleted(
     assert body["data"][0]["description"] == "Active"
 
 
-def test_get_time_entries_by_project_returns_400_missing_user_id(client, project_factory):
+def test_get_time_entries_by_project_returns_401_without_token(client, project_factory):
     project = project_factory()
 
     response = client.get(f"/time-entries/project/{project.id}")
 
-    assert response.status_code == 400
-    body = response.get_json()
-    assert body["success"] is False
-    assert "user_id" in body["error"]["message"].lower()
-
-
-def test_get_time_entries_by_project_returns_400_invalid_user_id(client, project_factory):
-    project = project_factory()
-
-    response = client.get(
-        f"/time-entries/project/{project.id}",
-        query_string={"user_id": "not-a-uuid"},
-    )
-
-    assert response.status_code == 400
-    body = response.get_json()
-    assert body["success"] is False
-    assert "user_id" in body["error"]["message"].lower()
+    assert response.status_code == 401
 
 
 def test_get_time_entries_by_project_returns_404_archived_project(
@@ -557,10 +547,11 @@ def test_get_time_entries_by_project_returns_404_archived_project(
 ):
     owner = user_factory(email="route-project-owner-archived@test.com")
     project = project_factory(owner=owner, is_archived=True)
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}",
-        query_string={"user_id": str(owner.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 404
@@ -591,10 +582,12 @@ def test_get_project_member_time_aggregation_week_returns_200(
         duration_minutes=90,
         description="W1-B",
     )
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}/aggregation",
-        query_string={"user_id": str(owner.id), "period": "week"},
+        query_string={"period": "week"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -627,10 +620,12 @@ def test_get_project_member_time_aggregation_month_returns_200(
         duration_minutes=70,
         description="MAY",
     )
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}/aggregation",
-        query_string={"user_id": str(owner.id), "period": "month"},
+        query_string={"period": "month"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -647,10 +642,12 @@ def test_get_project_member_time_aggregation_denies_non_owner(
     member = user_factory(email="route-aggregation-member-deny@test.com")
     project = project_factory(owner=owner)
     project_member_factory(project=project, user=member)
+    access_token = _login_and_get_access_token(client, email=member.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}/aggregation",
-        query_string={"user_id": str(member.id), "period": "week"},
+        query_string={"period": "week"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 403
@@ -681,12 +678,17 @@ def test_get_project_member_time_aggregation_excludes_deleted(
         duration_minutes=25,
         description="Deleted",
     )
+    member_token = _login_and_get_access_token(client, email=member.email)
+    owner_token = _login_and_get_access_token(client, email=owner.email)
 
-    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(member.id)})
+    client.delete(
+        f"/time-entries/{deleted.id}", headers={"Authorization": f"Bearer {member_token}"}
+    )
 
     response = client.get(
         f"/time-entries/project/{project.id}/aggregation",
-        query_string={"user_id": str(owner.id), "period": "week"},
+        query_string={"period": "week"},
+        headers={"Authorization": f"Bearer {owner_token}"},
     )
 
     assert response.status_code == 200
@@ -701,10 +703,11 @@ def test_get_project_member_time_aggregation_returns_400_missing_period(
 ):
     owner = user_factory(email="route-aggregation-owner-missing-period@test.com")
     project = project_factory(owner=owner)
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}/aggregation",
-        query_string={"user_id": str(owner.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -718,10 +721,12 @@ def test_get_project_member_time_aggregation_returns_400_invalid_period(
 ):
     owner = user_factory(email="route-aggregation-owner-invalid-period@test.com")
     project = project_factory(owner=owner)
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.get(
         f"/time-entries/project/{project.id}/aggregation",
-        query_string={"user_id": str(owner.id), "period": "year"},
+        query_string={"period": "year"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -751,10 +756,12 @@ def test_get_time_entry_summary_returns_200_with_expected_metrics(
         work_date=today.replace(day=1),
         duration_minutes=30,
     )
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.get(
         "/time-entries/summary",
-        query_string={"user_id": str(user.id), "project_id": str(project.id)},
+        query_string={"project_id": str(project.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -787,18 +794,20 @@ def test_get_time_entry_summary_updates_with_filters(
         work_date=date.today(),
         duration_minutes=40,
     )
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     all_response = client.get(
         "/time-entries/summary",
-        query_string={"user_id": str(user.id), "project_id": str(project.id)},
+        query_string={"project_id": str(project.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     filtered_response = client.get(
         "/time-entries/summary",
         query_string={
-            "user_id": str(user.id),
             "project_id": str(project.id),
             "search": "dashboard",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert all_response.status_code == 200
@@ -832,11 +841,15 @@ def test_get_time_entry_summary_excludes_deleted_entries(
         work_date=date.today(),
         duration_minutes=60,
     )
-    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(user.id)})
+    access_token = _login_and_get_access_token(client, email=user.email)
+    client.delete(
+        f"/time-entries/{deleted.id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
 
     response = client.get(
         "/time-entries/summary",
-        query_string={"user_id": str(user.id), "project_id": str(project.id)},
+        query_string={"project_id": str(project.id)},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -934,14 +947,16 @@ def test_get_dashboard_activity_excludes_deleted_entries(
 ):
     user = user_factory(email="route-dashboard-deleted@test.com", password="password123")
     project = project_factory(owner=user)
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     time_entry_factory(user=user, project=project, work_date=date.today(), duration_minutes=30)
     deleted = time_entry_factory(
         user=user, project=project, work_date=date.today(), duration_minutes=70
     )
-    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(user.id)})
-
-    access_token = _login_and_get_access_token(client, email=user.email)
+    client.delete(
+        f"/time-entries/{deleted.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
     response = client.get(
         "/time-entries/dashboard/activity",
@@ -1040,6 +1055,7 @@ def test_get_dashboard_preview_excludes_deleted_entries(
 ):
     user = user_factory(email="route-dashboard-preview-deleted@test.com", password="password123")
     project = project_factory(owner=user)
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     time_entry_factory(
         user=user,
@@ -1055,9 +1071,11 @@ def test_get_dashboard_preview_excludes_deleted_entries(
         duration_minutes=50,
         description="Deleted preview",
     )
-    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(user.id)})
+    client.delete(
+        f"/time-entries/{deleted.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
-    access_token = _login_and_get_access_token(client, email=user.email)
     response = client.get(
         "/time-entries/dashboard/preview",
         headers={"Authorization": f"Bearer {access_token}"},
