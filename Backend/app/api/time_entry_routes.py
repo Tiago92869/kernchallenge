@@ -143,6 +143,78 @@ def get_time_entries_by_project(project_id):
     )
 
 
+@time_entry_bp.get("/project/<project_id>/aggregation")
+def get_project_member_time_aggregation(project_id):
+    """Get owner-only member time aggregation by week or month.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+      - in: query
+        name: user_id
+        type: string
+        format: uuid
+        required: true
+        description: Project owner id
+      - in: query
+        name: period
+        type: string
+        enum:
+          - week
+          - month
+        required: true
+      - in: query
+        name: start_date
+        type: string
+        format: date
+        required: false
+      - in: query
+        name: end_date
+        type: string
+        format: date
+        required: false
+    responses:
+      200:
+        description: Aggregated member totals returned
+      400:
+        description: Validation error
+      403:
+        description: Only owner can access this report
+      404:
+        description: Project or user not found
+    """
+    user_id = request.args.get("user_id")
+    if not user_id:
+        raise ValidationError(message="Query param 'user_id' is required")
+
+    period = request.args.get("period")
+    if not period:
+        raise ValidationError(message="Query param 'period' is required")
+
+    try:
+        parsed_user_id = UUID(user_id)
+    except ValueError as exc:
+        raise ValidationError(message="Invalid user_id") from exc
+
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    aggregated = TimeEntryService.get_member_time_aggregation_by_project(
+        project_id=UUID(project_id),
+        user_id=parsed_user_id,
+        period=period,
+        start_date=_parse_date(start_date, "start_date") if start_date else None,
+        end_date=_parse_date(end_date, "end_date") if end_date else None,
+    )
+
+    return success_response(data=aggregated)
+
+
 @time_entry_bp.get("/<time_entry_id>")
 def get_time_entry_by_id(time_entry_id):
     """Get a single time entry by id.

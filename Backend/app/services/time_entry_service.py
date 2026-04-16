@@ -162,3 +162,34 @@ class TimeEntryService:
             end_date=end_date,
             search_string=search_string,
         )
+
+    @staticmethod
+    def get_member_time_aggregation_by_project(
+        project_id: UUID,
+        user_id: UUID,
+        period: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[dict]:
+        if period not in {"week", "month"}:
+            raise ValidationError(message="Invalid period, expected 'week' or 'month'")
+
+        if not ProjectService.does_project_exist_and_active(project_id):
+            raise NotFoundError(message="Project not found or is archived")
+
+        if not UserService.does_user_exist_and_active(user_id):
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+
+        if start_date and end_date and start_date > end_date:
+            raise ValidationError(message="Start date should be before end date")
+
+        project = ProjectRepository.get_by_id(project_id)
+        if project.owner_id != user_id:
+            raise ForbiddenError(message="Only project owner can access member aggregation")
+
+        return TimeEntryRepository.get_member_time_aggregation_by_project(
+            project_id=project_id,
+            period=period,
+            start_date=start_date,
+            end_date=end_date,
+        )
