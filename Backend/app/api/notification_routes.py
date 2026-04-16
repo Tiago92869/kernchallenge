@@ -19,6 +19,38 @@ def _parse_date(value, field_name):
 
 @notification_bp.get("")
 def get_notifications_by_recipient():
+    """List notifications for a recipient user.
+    ---
+    tags:
+      - Notifications
+    parameters:
+      - in: query
+        name: recipient_user_id
+        type: string
+        format: uuid
+        required: true
+      - in: query
+        name: search
+        type: string
+        required: false
+        description: Search in notification message
+      - in: query
+        name: date
+        type: string
+        format: date
+        required: false
+        example: "2026-04-16"
+      - in: query
+        name: project_id
+        type: string
+        format: uuid
+        required: false
+    responses:
+      200:
+        description: Notification list returned
+      400:
+        description: Validation error
+    """
     recipient_user_id = request.args.get("recipient_user_id")
     search = request.args.get("search")
     created_date = request.args.get("date")
@@ -41,6 +73,22 @@ def get_notifications_by_recipient():
 
 @notification_bp.patch("/<notification_id>/read")
 def mark_notification_as_read(notification_id):
+    """Mark a notification as read.
+    ---
+    tags:
+      - Notifications
+    parameters:
+      - in: path
+        name: notification_id
+        type: string
+        format: uuid
+        required: true
+    responses:
+      200:
+        description: Notification marked as read
+      404:
+        description: Notification not found
+    """
     notification = NotificationService.mark_notification_as_read(UUID(notification_id))
 
     return success_response(data=NotificationSchema.serialize_notification(notification))

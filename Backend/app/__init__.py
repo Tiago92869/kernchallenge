@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from flasgger import Swagger
 from flask import Flask
 
 from app.api.auth_routes import auth_bp
@@ -26,6 +27,31 @@ def create_app(config_override=None):
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
     jwt.init_app(flask_app)
+    Swagger(
+        flask_app,
+        config={
+            "headers": [],
+            "specs": [
+                {
+                    "endpoint": "apispec_1",
+                    "route": "/openapi.json",
+                    "rule_filter": lambda rule: True,
+                    "model_filter": lambda tag: True,
+                }
+            ],
+            "static_url_path": "/flasgger_static",
+            "swagger_ui": True,
+            "specs_route": "/docs/",
+        },
+        template={
+            "swagger": "2.0",
+            "info": {
+                "title": "Timesheet API",
+                "description": "Interactive API documentation for the Timesheet backend.",
+                "version": "1.0.0",
+            },
+        },
+    )
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):

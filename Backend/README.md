@@ -1,6 +1,12 @@
 Debug local run : 
  - python -m flask --app app run --debug 
 
+API docs (Swagger UI):
+ - http://localhost:5000/docs/
+
+OpenAPI/Swagger JSON:
+ - http://localhost:5000/openapi.json
+
 After importing any module run this command after: 
  - pip freeze > requirements.txt  
 

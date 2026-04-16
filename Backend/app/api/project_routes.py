@@ -24,6 +24,37 @@ def _parse_bool_query_param(value: str | None, *, field_name: str) -> bool:
 
 @project_bp.post("")
 def create_project():
+    """Create a new project.
+    ---
+    tags:
+      - Projects
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - owner_id
+            - name
+          properties:
+            owner_id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            description:
+              type: string
+            visibility:
+              type: string
+              enum: [PUBLIC, PRIVATE]
+              default: PRIVATE
+    responses:
+      201:
+        description: Project created
+      400:
+        description: Validation error
+    """
     data = request.get_json() or {}
 
     project = ProjectService.create_project(
@@ -41,6 +72,33 @@ def create_project():
 
 @project_bp.get("")
 def list_projects():
+    """List available projects.
+    ---
+    tags:
+      - Projects
+    parameters:
+      - in: query
+        name: user_id
+        type: string
+        format: uuid
+        required: true
+        description: Current user id used for ownership visibility checks
+      - in: query
+        name: search
+        type: string
+        required: false
+        description: Optional project name search text
+      - in: query
+        name: my_projects
+        type: boolean
+        required: false
+        description: When true, returns only projects where user is owner
+    responses:
+      200:
+        description: Project list returned
+      400:
+        description: Validation error
+    """
     user_id = request.args.get("user_id")
     if not user_id:
         raise ValidationError(message="Query param 'user_id' is required")
@@ -64,6 +122,40 @@ def list_projects():
 
 @project_bp.put("/<project_id>")
 def update_project(project_id):
+    """Update project metadata.
+    ---
+    tags:
+      - Projects
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            visibility:
+              type: string
+              enum: [PUBLIC, PRIVATE]
+              default: PRIVATE
+    responses:
+      200:
+        description: Project updated
+      400:
+        description: Validation error
+      404:
+        description: Project not found
+    """
     data = request.get_json() or {}
 
     project = ProjectService.updateProject(
@@ -78,6 +170,41 @@ def update_project(project_id):
 
 @project_bp.patch("/<project_id>/archive")
 def change_project_archive_status(project_id):
+    """Archive or unarchive a project.
+    ---
+    tags:
+      - Projects
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+            - action
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            action:
+              type: string
+              enum: [archive, unarchive]
+    responses:
+      200:
+        description: Project archive status changed
+      400:
+        description: Validation error
+      403:
+        description: User is not the project owner
+      404:
+        description: Project not found
+    """
     data = request.get_json() or {}
 
     project = ProjectService.change_archive_status(
