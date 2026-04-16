@@ -558,3 +558,164 @@ def test_get_time_entries_by_project_returns_404_archived_project(
     body = response.get_json()
     assert body["success"] is False
     assert "archived" in body["error"]["message"].lower()
+
+
+def test_get_project_member_time_aggregation_week_returns_200(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-aggregation-owner-week@test.com")
+    member = user_factory(email="route-aggregation-member-week@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 14),
+        duration_minutes=60,
+        description="W1-A",
+    )
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 15),
+        duration_minutes=90,
+        description="W1-B",
+    )
+
+    response = client.get(
+        f"/time-entries/project/{project.id}/aggregation",
+        query_string={"user_id": str(owner.id), "period": "week"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["total_minutes"] == 150
+    assert body["data"][0]["period"] == "week"
+
+
+def test_get_project_member_time_aggregation_month_returns_200(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-aggregation-owner-month@test.com")
+    member = user_factory(email="route-aggregation-member-month@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 10),
+        duration_minutes=50,
+        description="APR",
+    )
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 5, 5),
+        duration_minutes=70,
+        description="MAY",
+    )
+
+    response = client.get(
+        f"/time-entries/project/{project.id}/aggregation",
+        query_string={"user_id": str(owner.id), "period": "month"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 2
+    assert {item["period_start"] for item in body["data"]} == {"2026-04-01", "2026-05-01"}
+
+
+def test_get_project_member_time_aggregation_denies_non_owner(
+    client, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-aggregation-owner-deny@test.com")
+    member = user_factory(email="route-aggregation-member-deny@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    response = client.get(
+        f"/time-entries/project/{project.id}/aggregation",
+        query_string={"user_id": str(member.id), "period": "week"},
+    )
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["success"] is False
+    assert "owner" in body["error"]["message"].lower()
+
+
+def test_get_project_member_time_aggregation_excludes_deleted(
+    client, time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-aggregation-owner-deleted@test.com")
+    member = user_factory(email="route-aggregation-member-deleted@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 14),
+        duration_minutes=100,
+        description="Active",
+    )
+    deleted = time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 15),
+        duration_minutes=25,
+        description="Deleted",
+    )
+
+    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(member.id)})
+
+    response = client.get(
+        f"/time-entries/project/{project.id}/aggregation",
+        query_string={"user_id": str(owner.id), "period": "week"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["total_minutes"] == 100
+
+
+def test_get_project_member_time_aggregation_returns_400_missing_period(
+    client, user_factory, project_factory
+):
+    owner = user_factory(email="route-aggregation-owner-missing-period@test.com")
+    project = project_factory(owner=owner)
+
+    response = client.get(
+        f"/time-entries/project/{project.id}/aggregation",
+        query_string={"user_id": str(owner.id)},
+    )
+
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["success"] is False
+    assert "period" in body["error"]["message"].lower()
+
+
+def test_get_project_member_time_aggregation_returns_400_invalid_period(
+    client, user_factory, project_factory
+):
+    owner = user_factory(email="route-aggregation-owner-invalid-period@test.com")
+    project = project_factory(owner=owner)
+
+    response = client.get(
+        f"/time-entries/project/{project.id}/aggregation",
+        query_string={"user_id": str(owner.id), "period": "year"},
+    )
+
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["success"] is False
+    assert "expected 'week' or 'month'" in body["error"]["message"].lower()

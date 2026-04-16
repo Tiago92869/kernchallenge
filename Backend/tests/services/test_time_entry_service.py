@@ -471,3 +471,132 @@ def test_get_time_entries_by_project_raises_for_invalid_date_range(user_factory,
         )
 
     assert exc_info.value.message == "Start date should be before end date"
+
+
+def test_get_member_time_aggregation_by_project_owner_weekly(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="aggregation-owner-week@test.com")
+    member = user_factory(email="aggregation-member-week@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 14),
+        duration_minutes=60,
+        description="W1-A",
+    )
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 16),
+        duration_minutes=90,
+        description="W1-B",
+    )
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 21),
+        duration_minutes=30,
+        description="W2-A",
+    )
+
+    result = TimeEntryService.get_member_time_aggregation_by_project(
+        project_id=project.id,
+        user_id=owner.id,
+        period="week",
+    )
+
+    assert len(result) == 2
+    by_period = {item["period_start"]: item for item in result}
+    assert by_period["2026-04-13"]["total_minutes"] == 150
+    assert by_period["2026-04-20"]["total_minutes"] == 30
+
+
+def test_get_member_time_aggregation_by_project_owner_monthly(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="aggregation-owner-month@test.com")
+    member = user_factory(email="aggregation-member-month@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 10),
+        duration_minutes=40,
+        description="APR",
+    )
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 5, 2),
+        duration_minutes=80,
+        description="MAY",
+    )
+
+    result = TimeEntryService.get_member_time_aggregation_by_project(
+        project_id=project.id,
+        user_id=owner.id,
+        period="month",
+    )
+
+    assert len(result) == 2
+    by_period = {item["period_start"]: item for item in result}
+    assert by_period["2026-04-01"]["total_minutes"] == 40
+    assert by_period["2026-05-01"]["total_minutes"] == 80
+
+
+def test_get_member_time_aggregation_by_project_denies_non_owner(
+    user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="aggregation-owner-deny@test.com")
+    member = user_factory(email="aggregation-member-deny@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    with pytest.raises(ForbiddenError) as exc_info:
+        TimeEntryService.get_member_time_aggregation_by_project(
+            project_id=project.id,
+            user_id=member.id,
+            period="week",
+        )
+
+    assert "owner" in exc_info.value.message.lower()
+
+
+def test_get_member_time_aggregation_by_project_excludes_deleted(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="aggregation-owner-deleted@test.com")
+    member = user_factory(email="aggregation-member-deleted@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 15),
+        duration_minutes=120,
+        description="Active",
+    )
+    deleted_entry = time_entry_factory(
+        user=member,
+        project=project,
+        work_date=date(2026, 4, 16),
+        duration_minutes=45,
+        description="Deleted",
+    )
+    TimeEntryService.delete_time_entry_by_id(deleted_entry.id, member.id)
+
+    result = TimeEntryService.get_member_time_aggregation_by_project(
+        project_id=project.id,
+        user_id=owner.id,
+        period="week",
+    )
+
+    assert len(result) == 1
+    assert result[0]["total_minutes"] == 120
