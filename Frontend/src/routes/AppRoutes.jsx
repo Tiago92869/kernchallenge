@@ -4,12 +4,12 @@ import AppLayout from '../components/AppLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
 import PublicOnlyRoute from '../components/PublicOnlyRoute'
 import DashboardPage from '../pages/DashboardPage'
+import CreateAccountPage from '../pages/CreateAccountPage'
 import LandingPage from '../pages/LandingPage'
 import LoginPage from '../pages/LoginPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import NotificationsPage from '../pages/NotificationsPage'
 import ProjectsPage from '../pages/ProjectsPage'
-import SignupPage from '../pages/SignupPage'
 import TimeEntriesPage from '../pages/TimeEntriesPage'
 
 function AppRoutes() {
@@ -37,7 +37,7 @@ function AppRoutes() {
         path="/signup"
         element={
           <PublicOnlyRoute>
-            <SignupPage />
+            <CreateAccountPage />
           </PublicOnlyRoute>
         }
       />
