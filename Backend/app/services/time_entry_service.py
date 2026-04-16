@@ -71,6 +71,27 @@ class TimeEntryService:
         )
 
     @staticmethod
+    def get_time_entry_summary_by_user_and_date_range_and_project(
+        user_id=None, start_date=None, end_date=None, project_id=None, search_string=None
+    ) -> dict:
+        if project_id and not ProjectService.does_project_exist_and_active(project_id):
+            raise NotFoundError(message="Project not found or is archived")
+
+        if user_id and not UserService.does_user_exist_and_active(user_id):
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+
+        if start_date and end_date and start_date > end_date:
+            raise ValidationError(message="Start date should be before end date")
+
+        return TimeEntryRepository.get_time_entry_summary_by_user_and_date_range_and_project(
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            project_id=project_id,
+            search_string=search_string,
+        )
+
+    @staticmethod
     def update_time_entry_by_id(
         time_entry_id: UUID,
         user_id: UUID,

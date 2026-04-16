@@ -719,3 +719,119 @@ def test_get_project_member_time_aggregation_returns_400_invalid_period(
     body = response.get_json()
     assert body["success"] is False
     assert "expected 'week' or 'month'" in body["error"]["message"].lower()
+
+
+def test_get_time_entry_summary_returns_200_with_expected_metrics(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-summary-user@test.com")
+    project = project_factory(owner=user)
+    today = date.today()
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Today entry",
+        work_date=today,
+        duration_minutes=120,
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Month entry",
+        work_date=today.replace(day=1),
+        duration_minutes=30,
+    )
+
+    response = client.get(
+        "/time-entries/summary",
+        query_string={"user_id": str(user.id), "project_id": str(project.id)},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["total_entries"] == 2
+    assert body["data"]["total_minutes"] == 150
+    assert body["data"]["entries_today"] == 1
+    assert body["data"]["minutes_today"] == 120
+    assert body["data"]["hours_today"] == 2.0
+
+
+def test_get_time_entry_summary_updates_with_filters(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-summary-filter-user@test.com")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Dashboard fix",
+        work_date=date.today(),
+        duration_minutes=90,
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Other task",
+        work_date=date.today(),
+        duration_minutes=40,
+    )
+
+    all_response = client.get(
+        "/time-entries/summary",
+        query_string={"user_id": str(user.id), "project_id": str(project.id)},
+    )
+    filtered_response = client.get(
+        "/time-entries/summary",
+        query_string={
+            "user_id": str(user.id),
+            "project_id": str(project.id),
+            "search": "dashboard",
+        },
+    )
+
+    assert all_response.status_code == 200
+    assert filtered_response.status_code == 200
+    all_data = all_response.get_json()["data"]
+    filtered_data = filtered_response.get_json()["data"]
+
+    assert all_data["total_entries"] == 2
+    assert filtered_data["total_entries"] == 1
+    assert all_data["total_minutes"] == 130
+    assert filtered_data["total_minutes"] == 90
+
+
+def test_get_time_entry_summary_excludes_deleted_entries(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-summary-deleted-user@test.com")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Active",
+        work_date=date.today(),
+        duration_minutes=30,
+    )
+    deleted = time_entry_factory(
+        user=user,
+        project=project,
+        description="Deleted",
+        work_date=date.today(),
+        duration_minutes=60,
+    )
+    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(user.id)})
+
+    response = client.get(
+        "/time-entries/summary",
+        query_string={"user_id": str(user.id), "project_id": str(project.id)},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["total_entries"] == 1
+    assert body["data"]["total_minutes"] == 30
