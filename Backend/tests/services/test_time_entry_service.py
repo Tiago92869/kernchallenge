@@ -3,7 +3,7 @@ from uuid import UUID
 
 import pytest
 
-from app.api.errors import NotFoundError, ValidationError
+from app.api.errors import ForbiddenError, NotFoundError, ValidationError
 from app.models.time_entry import TimeEntry
 from app.services.time_entry_service import TimeEntryService
 
@@ -297,3 +297,177 @@ def test_delete_time_entry_by_id_denies_when_different_user(time_entry_factory, 
         TimeEntryService.delete_time_entry_by_id(time_entry.id, different_user.id)
 
     assert exc_info.value.message == "You do not have permission to delete this time entry"
+
+
+def test_get_time_entries_by_project_owner_sees_all(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="project-owner-all@test.com")
+    member1 = user_factory(email="project-member1-all@test.com")
+    member2 = user_factory(email="project-member2-all@test.com")
+    project = project_factory(owner=owner)
+
+    project_member_factory(project=project, user=member1)
+    project_member_factory(project=project, user=member2)
+
+    time_entry_factory(user=owner, project=project, description="Owner entry")
+    time_entry_factory(user=member1, project=project, description="Member1 entry")
+    time_entry_factory(user=member2, project=project, description="Member2 entry")
+
+    results = TimeEntryService.get_time_entries_by_project_with_role_visibility(
+        project_id=project.id,
+        user_id=owner.id,
+    )
+
+    assert len(results) == 3
+    descriptions = {e.description for e in results}
+    assert "Owner entry" in descriptions
+    assert "Member1 entry" in descriptions
+    assert "Member2 entry" in descriptions
+
+
+def test_get_time_entries_by_project_member_sees_own_only(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="project-owner-member@test.com")
+    member1 = user_factory(email="project-member1-view@test.com")
+    member2 = user_factory(email="project-member2-view@test.com")
+    project = project_factory(owner=owner)
+
+    project_member_factory(project=project, user=member1)
+    project_member_factory(project=project, user=member2)
+
+    time_entry_factory(user=owner, project=project, description="Owner entry")
+    time_entry_factory(user=member1, project=project, description="Member1 entry 1")
+    time_entry_factory(user=member1, project=project, description="Member1 entry 2")
+    time_entry_factory(user=member2, project=project, description="Member2 entry")
+
+    results = TimeEntryService.get_time_entries_by_project_with_role_visibility(
+        project_id=project.id,
+        user_id=member1.id,
+    )
+
+    assert len(results) == 2
+    descriptions = {e.description for e in results}
+    assert "Member1 entry 1" in descriptions
+    assert "Member1 entry 2" in descriptions
+    assert "Owner entry" not in descriptions
+    assert "Member2 entry" not in descriptions
+
+
+def test_get_time_entries_by_project_denies_non_member(user_factory, project_factory):
+    owner = user_factory(email="project-owner-deny@test.com")
+    non_member = user_factory(email="project-non-member@test.com")
+    project = project_factory(owner=owner)
+
+    with pytest.raises(ForbiddenError) as exc_info:
+        TimeEntryService.get_time_entries_by_project_with_role_visibility(
+            project_id=project.id,
+            user_id=non_member.id,
+        )
+
+    assert exc_info.value.message == "User does not have access to this project"
+
+
+def test_get_time_entries_by_project_with_date_filter(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="project-owner-date@test.com")
+    member = user_factory(email="project-member-date@test.com")
+    project = project_factory(owner=owner)
+
+    project_member_factory(project=project, user=member)
+
+    early = date.today() - timedelta(days=5)
+    middle = date.today() - timedelta(days=2)
+    recent = date.today()
+
+    time_entry_factory(user=member, project=project, work_date=early, description="Early entry")
+    time_entry_factory(user=member, project=project, work_date=middle, description="Middle entry")
+    time_entry_factory(user=member, project=project, work_date=recent, description="Recent entry")
+
+    results = TimeEntryService.get_time_entries_by_project_with_role_visibility(
+        project_id=project.id,
+        user_id=member.id,
+        start_date=date.today() - timedelta(days=3),
+        end_date=date.today(),
+    )
+
+    assert len(results) == 2
+    descriptions = {e.description for e in results}
+    assert "Middle entry" in descriptions
+    assert "Recent entry" in descriptions
+    assert "Early entry" not in descriptions
+
+
+def test_get_time_entries_by_project_with_search_filter(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="project-owner-search@test.com")
+    member = user_factory(email="project-member-search@test.com")
+    project = project_factory(owner=owner)
+
+    project_member_factory(project=project, user=member)
+
+    time_entry_factory(user=member, project=project, description="Fixed bug in dashboard")
+    time_entry_factory(user=member, project=project, description="Implemented new API endpoint")
+    time_entry_factory(user=member, project=project, description="Updated documentation")
+
+    results = TimeEntryService.get_time_entries_by_project_with_role_visibility(
+        project_id=project.id,
+        user_id=member.id,
+        search_string="dashboard",
+    )
+
+    assert len(results) == 1
+    assert results[0].description == "Fixed bug in dashboard"
+
+
+def test_get_time_entries_by_project_excludes_deleted(
+    time_entry_factory, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="project-owner-deleted@test.com")
+    member = user_factory(email="project-member-deleted@test.com")
+    project = project_factory(owner=owner)
+
+    project_member_factory(project=project, user=member)
+
+    active_entry = time_entry_factory(user=member, project=project, description="Active entry")
+    deleted_entry = time_entry_factory(user=member, project=project, description="Deleted entry")
+    TimeEntryService.delete_time_entry_by_id(deleted_entry.id, member.id)
+
+    results = TimeEntryService.get_time_entries_by_project_with_role_visibility(
+        project_id=project.id,
+        user_id=member.id,
+    )
+
+    assert len(results) == 1
+    assert results[0].description == "Active entry"
+
+
+def test_get_time_entries_by_project_raises_for_archived_project(user_factory, project_factory):
+    owner = user_factory(email="project-owner-archived@test.com")
+    project = project_factory(owner=owner, is_archived=True)
+
+    with pytest.raises(NotFoundError) as exc_info:
+        TimeEntryService.get_time_entries_by_project_with_role_visibility(
+            project_id=project.id,
+            user_id=owner.id,
+        )
+
+    assert exc_info.value.message == "Project not found or is archived"
+
+
+def test_get_time_entries_by_project_raises_for_invalid_date_range(user_factory, project_factory):
+    owner = user_factory(email="project-owner-invalid-date@test.com")
+    project = project_factory(owner=owner)
+
+    with pytest.raises(ValidationError) as exc_info:
+        TimeEntryService.get_time_entries_by_project_with_role_visibility(
+            project_id=project.id,
+            user_id=owner.id,
+            start_date=date.today(),
+            end_date=date.today() - timedelta(days=1),
+        )
+
+    assert exc_info.value.message == "Start date should be before end date"

@@ -72,6 +72,77 @@ def create_time_entry():
     )
 
 
+@time_entry_bp.get("/project/<project_id>")
+def get_time_entries_by_project(project_id):
+    """Get project time entries with role-based visibility.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+      - in: query
+        name: user_id
+        type: string
+        format: uuid
+        required: true
+        description: Current user id (owner sees all entries, members see only their own)
+      - in: query
+        name: start_date
+        type: string
+        format: date
+        required: false
+        example: "2026-04-01"
+      - in: query
+        name: end_date
+        type: string
+        format: date
+        required: false
+        example: "2026-04-30"
+      - in: query
+        name: search
+        type: string
+        required: false
+        description: Search in description
+    responses:
+      200:
+        description: Time entries list returned
+      400:
+        description: Validation error
+      403:
+        description: User does not have access to this project
+      404:
+        description: Project or user not found
+    """
+    user_id = request.args.get("user_id")
+    if not user_id:
+        raise ValidationError(message="Query param 'user_id' is required")
+
+    try:
+        parsed_user_id = UUID(user_id)
+    except ValueError as exc:
+        raise ValidationError(message="Invalid user_id") from exc
+
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    search_string = request.args.get("search")
+
+    time_entries = TimeEntryService.get_time_entries_by_project_with_role_visibility(
+        project_id=UUID(project_id),
+        user_id=parsed_user_id,
+        start_date=_parse_date(start_date, "start_date") if start_date else None,
+        end_date=_parse_date(end_date, "end_date") if end_date else None,
+        search_string=search_string,
+    )
+
+    return success_response(
+        data=[TimeEntrySchema.serialize_time_entry(time_entry) for time_entry in time_entries]
+    )
+
+
 @time_entry_bp.get("/<time_entry_id>")
 def get_time_entry_by_id(time_entry_id):
     """Get a single time entry by id.

@@ -35,3 +35,30 @@ class TimeEntryRepository:
             query = query.filter(TimeEntry.description.ilike(f"%{search_string}%"))
 
         return query.order_by(TimeEntry.work_date.desc()).all()
+
+    @staticmethod
+    def get_time_entries_by_project(
+        project_id,
+        user_id_filter=None,
+        start_date=None,
+        end_date=None,
+        search_string=None,
+    ):
+        """Get time entries for a project without visibility checks (caller responsible)."""
+        query = TimeEntry.query.filter(
+            TimeEntry.project_id == project_id, TimeEntry.deleted_at.is_(None)
+        )
+
+        if user_id_filter:
+            query = query.filter(TimeEntry.user_id == user_id_filter)
+
+        if start_date:
+            query = query.filter(TimeEntry.work_date >= start_date)
+
+        if end_date:
+            query = query.filter(TimeEntry.work_date <= end_date)
+
+        if search_string:
+            query = query.filter(TimeEntry.description.ilike(f"%{search_string}%"))
+
+        return query.order_by(TimeEntry.work_date.desc()).all()
