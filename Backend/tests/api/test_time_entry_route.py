@@ -962,3 +962,115 @@ def test_get_dashboard_activity_returns_401_without_token(client):
     )
 
     assert response.status_code == 401
+
+
+def test_get_dashboard_preview_returns_200_with_max_4_entries(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-dashboard-preview-limit@test.com", password="password123")
+    project = project_factory(owner=user)
+
+    for index in range(5):
+        time_entry_factory(
+            user=user,
+            project=project,
+            work_date=date.today() - timedelta(days=index),
+            duration_minutes=15,
+            description=f"Preview {index}",
+        )
+
+    access_token = _login_and_get_access_token(client, email=user.email)
+    response = client.get(
+        "/time-entries/dashboard/preview",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 4
+    assert set(body["data"][0].keys()) == {
+        "id",
+        "day",
+        "month",
+        "title",
+        "description",
+        "time",
+    }
+
+
+def test_get_dashboard_preview_returns_only_authenticated_user_entries(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user_a = user_factory(email="route-dashboard-preview-a@test.com", password="password123")
+    user_b = user_factory(email="route-dashboard-preview-b@test.com", password="password123")
+    project_a = project_factory(owner=user_a)
+    project_b = project_factory(owner=user_b)
+
+    time_entry_factory(
+        user=user_a,
+        project=project_a,
+        work_date=date.today(),
+        duration_minutes=20,
+        description="Owned preview",
+    )
+    time_entry_factory(
+        user=user_b,
+        project=project_b,
+        work_date=date.today(),
+        duration_minutes=25,
+        description="Other preview",
+    )
+
+    access_token = _login_and_get_access_token(client, email=user_a.email)
+    response = client.get(
+        "/time-entries/dashboard/preview",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["description"] == "Owned preview"
+
+
+def test_get_dashboard_preview_excludes_deleted_entries(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-dashboard-preview-deleted@test.com", password="password123")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today(),
+        duration_minutes=10,
+        description="Active preview",
+    )
+    deleted = time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today(),
+        duration_minutes=50,
+        description="Deleted preview",
+    )
+    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(user.id)})
+
+    access_token = _login_and_get_access_token(client, email=user.email)
+    response = client.get(
+        "/time-entries/dashboard/preview",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["description"] == "Active preview"
+
+
+def test_get_dashboard_preview_returns_401_without_token(client):
+    response = client.get("/time-entries/dashboard/preview")
+
+    assert response.status_code == 401

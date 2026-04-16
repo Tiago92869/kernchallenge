@@ -822,3 +822,81 @@ def test_get_dashboard_activity_for_user_excludes_deleted(
 
     assert active_entry.id is not None
     assert result["total_minutes"] == 20
+
+
+def test_get_dashboard_preview_for_user_returns_max_4_entries(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="dashboard-preview-limit@test.com")
+    project = project_factory(owner=user)
+
+    for index in range(5):
+        time_entry_factory(
+            user=user,
+            project=project,
+            work_date=date.today() - timedelta(days=index),
+            duration_minutes=30,
+            description=f"Entry {index}",
+        )
+
+    result = TimeEntryService.get_dashboard_preview_for_user(user_id=user.id)
+
+    assert len(result) == 4
+    assert set(result[0].keys()) == {"id", "day", "month", "title", "description", "time"}
+
+
+def test_get_dashboard_preview_for_user_only_returns_authenticated_user_entries(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="dashboard-preview-own@test.com")
+    other_user = user_factory(email="dashboard-preview-other@test.com")
+    project_user = project_factory(owner=user)
+    project_other = project_factory(owner=other_user)
+
+    time_entry_factory(
+        user=user,
+        project=project_user,
+        description="Owned entry",
+        work_date=date.today(),
+        duration_minutes=25,
+    )
+    time_entry_factory(
+        user=other_user,
+        project=project_other,
+        description="Other entry",
+        work_date=date.today(),
+        duration_minutes=35,
+    )
+
+    result = TimeEntryService.get_dashboard_preview_for_user(user_id=user.id)
+
+    assert len(result) == 1
+    assert result[0]["description"] == "Owned entry"
+
+
+def test_get_dashboard_preview_for_user_excludes_deleted_entries(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="dashboard-preview-deleted@test.com")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Active",
+        work_date=date.today(),
+        duration_minutes=20,
+    )
+    deleted = time_entry_factory(
+        user=user,
+        project=project,
+        description="Deleted",
+        work_date=date.today(),
+        duration_minutes=40,
+    )
+    TimeEntryService.delete_time_entry_by_id(deleted.id, user.id)
+
+    result = TimeEntryService.get_dashboard_preview_for_user(user_id=user.id)
+
+    assert len(result) == 1
+    assert result[0]["description"] == "Active"

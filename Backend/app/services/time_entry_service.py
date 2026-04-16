@@ -242,3 +242,13 @@ class TimeEntryService:
             "total_minutes": total_minutes,
             "total_hours": round(total_minutes / 60, 2),
         }
+
+    @staticmethod
+    def get_dashboard_preview_for_user(*, user_id: UUID) -> list[dict]:
+        if not UserService.does_user_exist_and_active(user_id):
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+
+        return TimeEntryRepository.get_recent_user_dashboard_preview_entries(
+            user_id=user_id,
+            limit=4,
+        )
