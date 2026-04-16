@@ -377,6 +377,77 @@ select {
   margin: 0;
 }
 
+.success {
+  margin: 0;
+  color: #1f7a4f;
+}
+
+.inline-link {
+  color: var(--blue-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.create-account-shell {
+  min-height: calc(100vh - 88px);
+  max-width: 1180px;
+  margin: 0 auto;
+  border-radius: 14px;
+  border: 1px solid #d5deef;
+  background: linear-gradient(146deg, rgba(255, 255, 255, 0.56), rgba(239, 243, 255, 0.8));
+  padding: 52px;
+}
+
+.create-account-panel {
+  border: 1px solid #dbe3f2;
+  border-radius: 18px;
+  background: #f6f8fc;
+  display: grid;
+  grid-template-columns: minmax(430px, 1.05fr) minmax(320px, 0.95fr);
+  overflow: hidden;
+}
+
+.create-account-form-side {
+  padding: 26px 36px 28px;
+}
+
+.create-account-form-side h1 {
+  margin: 22px 0 20px;
+  font-size: 2rem;
+  color: #385f84;
+}
+
+.create-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.name-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.create-account-submit {
+  margin-top: 8px;
+  width: fit-content;
+  min-width: 190px;
+}
+
+.create-account-visual-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 12% 18%, rgba(227, 236, 255, 0.7), rgba(242, 247, 255, 0.35));
+}
+
+.create-account-hero {
+  width: min(100%, 520px);
+  object-fit: contain;
+  animation: gentle-float 2.8s ease-in-out infinite;
+}
+
 @keyframes gentle-float {
   0% {
     transform: translateY(0);
@@ -433,6 +504,23 @@ select {
   .project-meta {
     justify-content: flex-start;
   }
+
+  .create-account-shell {
+    padding: 18px;
+  }
+
+  .create-account-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .create-account-visual-side {
+    display: none;
+  }
+
+  .name-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -459,5 +547,9 @@ select {
   .btn-primary {
     padding: 10px 16px;
     min-height: 40px;
+  }
+
+  .create-account-form-side {
+    padding: 18px 14px 20px;
   }
 }
