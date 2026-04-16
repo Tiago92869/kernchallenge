@@ -5,6 +5,7 @@ from app.api.responses import success_response
 from app.schemas.project_schema import ProjectSchema
 from app.services.project_service import ProjectService
 from flask import Blueprint, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 project_bp = Blueprint("projects", __name__, url_prefix="/projects")
 
@@ -118,6 +119,29 @@ def list_projects():
     )
 
     return success_response(data=ProjectSchema.serialize_project_infos_list()(projects))
+
+
+@project_bp.get("/dashboard/activity")
+@jwt_required()
+def get_project_dashboard_activity():
+    """Get dashboard project activity split by joined and owned projects.
+    ---
+    tags:
+      - Projects
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Project dashboard activity returned
+      401:
+        description: Missing or invalid auth token
+      404:
+        description: Authenticated user not found or inactive
+    """
+    user_id = UUID(get_jwt_identity())
+
+    payload = ProjectService.get_dashboard_project_activity(user_id=user_id)
+    return success_response(data=ProjectSchema.serialize_dashboard_project_activity(payload))
 
 
 @project_bp.put("/<project_id>")

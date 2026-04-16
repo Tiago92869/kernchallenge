@@ -37,3 +37,26 @@ class ProjectRepository:
             query = query.filter(Project.name.ilike(f"%{normalized_search}%"))
 
         return query.order_by(Project.created_at.desc()).all()
+
+    @staticmethod
+    def list_recent_owned_projects(*, user_id, limit: int = 3):
+        return (
+            Project.query.filter(Project.owner_id == user_id)
+            .order_by(Project.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_recent_member_projects(*, user_id, limit: int = 3):
+        return (
+            Project.query.join(ProjectMember, ProjectMember.project_id == Project.id)
+            .filter(
+                ProjectMember.user_id == user_id,
+                ProjectMember.removed_at.is_(None),
+                Project.owner_id != user_id,
+            )
+            .order_by(Project.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
