@@ -1,31 +1,66 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
 
 function LoginPage() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const location = useLocation()
+  const { login, isLoading } = useAuth()
 
-  const handleLogin = () => {
-    login()
-    navigate('/dashboard')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+
+  const fromPath = location.state?.from?.pathname || '/dashboard'
+
+  const onSubmit = async (event) => {
+    event.preventDefault()
+    setError('')
+
+    try {
+      await login({ email, password })
+      navigate(fromPath, { replace: true })
+    } catch {
+      setError('Invalid email or password')
+    }
   }
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>Log In</h1>
-        <p className="muted-text">
-          Placeholder login screen for now. This action sets a mock session.
-        </p>
-        <button type="button" className="btn-primary" onClick={handleLogin}>
-          Continue to Dashboard
+    <div className="auth-wrap">
+      <form className="auth-card" onSubmit={onSubmit}>
+        <h1>Sign In</h1>
+        <p className="muted">Use your backend user credentials.</p>
+
+        <label htmlFor="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+
+        <label htmlFor="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+        />
+
+        {error ? <p className="error">{error}</p> : null}
+
+        <button className="btn" type="submit" disabled={isLoading}>
+          {isLoading ? 'Signing in...' : 'Sign In'}
         </button>
-        <p className="muted-text">
+
+        <p className="muted">
           Need an account? <Link to="/signup">Create one</Link>
         </p>
-      </section>
-    </main>
+      </form>
+    </div>
   )
 }
 
