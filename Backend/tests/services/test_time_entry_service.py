@@ -600,3 +600,133 @@ def test_get_member_time_aggregation_by_project_excludes_deleted(
 
     assert len(result) == 1
     assert result[0]["total_minutes"] == 120
+
+
+def test_get_time_entry_summary_reflects_same_filters_and_totals(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="summary-filter-user@test.com")
+    other_user = user_factory(email="summary-filter-other-user@test.com")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Dashboard fix",
+        work_date=date.today() - timedelta(days=1),
+        duration_minutes=90,
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Dashboard polish",
+        work_date=date.today(),
+        duration_minutes=30,
+    )
+    time_entry_factory(
+        user=other_user,
+        project=project,
+        description="Dashboard fix",
+        work_date=date.today(),
+        duration_minutes=120,
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Different topic",
+        work_date=date.today(),
+        duration_minutes=60,
+    )
+
+    summary = TimeEntryService.get_time_entry_summary_by_user_and_date_range_and_project(
+        user_id=user.id,
+        project_id=project.id,
+        search_string="dashboard",
+    )
+
+    assert summary["total_entries"] == 2
+    assert summary["total_minutes"] == 120
+    assert summary["total_hours"] == 2.0
+
+
+def test_get_time_entry_summary_counts_for_today_week_month_and_hours_today(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="summary-date-metrics-user@test.com")
+    project = project_factory(owner=user)
+
+    today = date.today()
+    start_of_week = today - timedelta(days=today.weekday())
+    week_entry_day = start_of_week if start_of_week != today else today - timedelta(days=1)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Today 1",
+        work_date=today,
+        duration_minutes=90,
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="Today 2",
+        work_date=today,
+        duration_minutes=30,
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="This week",
+        work_date=week_entry_day,
+        duration_minutes=45,
+    )
+    time_entry_factory(
+        user=user,
+        project=project,
+        description="This month",
+        work_date=today.replace(day=1),
+        duration_minutes=60,
+    )
+
+    summary = TimeEntryService.get_time_entry_summary_by_user_and_date_range_and_project(
+        user_id=user.id,
+        project_id=project.id,
+    )
+
+    assert summary["entries_today"] == 2
+    assert summary["entries_current_week"] >= 3
+    assert summary["entries_current_month"] >= 4
+    assert summary["minutes_today"] == 120
+    assert summary["hours_today"] == 2.0
+
+
+def test_get_time_entry_summary_excludes_deleted_entries(
+    time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="summary-deleted-user@test.com")
+    project = project_factory(owner=user)
+
+    active = time_entry_factory(
+        user=user,
+        project=project,
+        description="Active",
+        work_date=date.today(),
+        duration_minutes=50,
+    )
+    deleted = time_entry_factory(
+        user=user,
+        project=project,
+        description="Deleted",
+        work_date=date.today(),
+        duration_minutes=70,
+    )
+    TimeEntryService.delete_time_entry_by_id(deleted.id, user.id)
+
+    summary = TimeEntryService.get_time_entry_summary_by_user_and_date_range_and_project(
+        user_id=user.id,
+        project_id=project.id,
+    )
+
+    assert active.id is not None
+    assert summary["total_entries"] == 1
+    assert summary["total_minutes"] == 50

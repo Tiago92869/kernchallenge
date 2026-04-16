@@ -1,3 +1,5 @@
+from datetime import date
+
 from app.extensions import db
 from app.models.time_entry import TimeEntry
 from app.models.user import User
@@ -5,17 +7,7 @@ from app.models.user import User
 
 class TimeEntryRepository:
     @staticmethod
-    def save(time_entry: TimeEntry) -> TimeEntry:
-        db.session.add(time_entry)
-        db.session.commit()
-        return time_entry
-
-    @staticmethod
-    def get_time_entry_by_id(time_entry_id):
-        return db.session.get(TimeEntry, time_entry_id)
-
-    @staticmethod
-    def get_time_entries_by_user_and_date_range_and_project(
+    def _build_filtered_query(
         user_id=None, start_date=None, end_date=None, project_id=None, search_string=None
     ):
         query = TimeEntry.query.filter(TimeEntry.deleted_at.is_(None))
@@ -35,7 +27,77 @@ class TimeEntryRepository:
         if search_string:
             query = query.filter(TimeEntry.description.ilike(f"%{search_string}%"))
 
+        return query
+
+    @staticmethod
+    def save(time_entry: TimeEntry) -> TimeEntry:
+        db.session.add(time_entry)
+        db.session.commit()
+        return time_entry
+
+    @staticmethod
+    def get_time_entry_by_id(time_entry_id):
+        return db.session.get(TimeEntry, time_entry_id)
+
+    @staticmethod
+    def get_time_entries_by_user_and_date_range_and_project(
+        user_id=None, start_date=None, end_date=None, project_id=None, search_string=None
+    ):
+        query = TimeEntryRepository._build_filtered_query(
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            project_id=project_id,
+            search_string=search_string,
+        )
+
         return query.order_by(TimeEntry.work_date.desc()).all()
+
+    @staticmethod
+    def get_time_entry_summary_by_user_and_date_range_and_project(
+        *,
+        user_id=None,
+        start_date=None,
+        end_date=None,
+        project_id=None,
+        search_string=None,
+        today=None,
+    ):
+        current_day = today or date.today()
+        start_of_week = current_day.fromordinal(current_day.toordinal() - current_day.weekday())
+        start_of_month = current_day.replace(day=1)
+
+        entries = TimeEntryRepository._build_filtered_query(
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            project_id=project_id,
+            search_string=search_string,
+        ).all()
+
+        total_entries = len(entries)
+        total_minutes = sum(entry.duration_minutes for entry in entries)
+        entries_today = sum(1 for entry in entries if entry.work_date == current_day)
+        entries_week = sum(
+            1 for entry in entries if start_of_week <= entry.work_date <= current_day
+        )
+        entries_month = sum(
+            1 for entry in entries if start_of_month <= entry.work_date <= current_day
+        )
+        minutes_today = sum(
+            entry.duration_minutes for entry in entries if entry.work_date == current_day
+        )
+
+        return {
+            "total_entries": total_entries,
+            "total_minutes": total_minutes,
+            "total_hours": round(total_minutes / 60, 2),
+            "entries_today": entries_today,
+            "entries_current_week": entries_week,
+            "entries_current_month": entries_month,
+            "minutes_today": minutes_today,
+            "hours_today": round(minutes_today / 60, 2),
+        }
 
     @staticmethod
     def get_time_entries_by_project(

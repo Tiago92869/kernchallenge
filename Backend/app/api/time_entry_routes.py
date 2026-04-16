@@ -297,6 +297,63 @@ def get_time_entries_by_user_and_date_range_and_project():
     )
 
 
+@time_entry_bp.get("/summary")
+def get_time_entry_summary_by_user_and_date_range_and_project():
+    """Get summary totals for time entries using the same filters as list endpoint.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: query
+        name: user_id
+        type: string
+        format: uuid
+        required: false
+      - in: query
+        name: start_date
+        type: string
+        format: date
+        required: false
+      - in: query
+        name: end_date
+        type: string
+        format: date
+        required: false
+      - in: query
+        name: project_id
+        type: string
+        format: uuid
+        required: false
+      - in: query
+        name: search
+        type: string
+        required: false
+        description: Search in description
+    responses:
+      200:
+        description: Summary returned
+      400:
+        description: Validation error
+      404:
+        description: Related project or user not found
+    """
+    user_id = request.args.get("user_id")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    project_id = request.args.get("project_id")
+    search_string = request.args.get("search")
+
+    summary = TimeEntryService.get_time_entry_summary_by_user_and_date_range_and_project(
+        user_id=UUID(user_id) if user_id else None,
+        start_date=_parse_date(start_date, "start_date") if start_date else None,
+        end_date=_parse_date(end_date, "end_date") if end_date else None,
+        project_id=UUID(project_id) if project_id else None,
+        search_string=search_string,
+    )
+
+    return success_response(data=summary)
+
+
 @time_entry_bp.put("/<time_entry_id>")
 def update_time_entry(time_entry_id):
     """Update a time entry.
