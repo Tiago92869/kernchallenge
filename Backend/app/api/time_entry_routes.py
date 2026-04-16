@@ -19,6 +19,43 @@ def _parse_date(value, field_name):
 
 @time_entry_bp.post("")
 def create_time_entry():
+    """Create a new time entry.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+            - project_id
+            - date
+            - hours
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            project_id:
+              type: string
+              format: uuid
+            date:
+              type: string
+              format: date
+              example: "2026-04-16"
+            hours:
+              type: integer
+              description: Duration in minutes
+            description:
+              type: string
+    responses:
+      201:
+        description: Time entry created
+      400:
+        description: Validation error
+    """
     data = request.get_json() or {}
 
     time_entry = TimeEntryService.create_time_entry(
@@ -37,6 +74,22 @@ def create_time_entry():
 
 @time_entry_bp.get("/<time_entry_id>")
 def get_time_entry_by_id(time_entry_id):
+    """Get a single time entry by id.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: path
+        name: time_entry_id
+        type: string
+        format: uuid
+        required: true
+    responses:
+      200:
+        description: Time entry found
+      404:
+        description: Time entry not found
+    """
     time_entry = TimeEntryService.get_time_entry_by_id(UUID(time_entry_id))
 
     return success_response(data=TimeEntrySchema.serialize_time_entry(time_entry))
@@ -44,6 +97,44 @@ def get_time_entry_by_id(time_entry_id):
 
 @time_entry_bp.get("")
 def get_time_entries_by_user_and_date_range_and_project():
+    """List time entries with optional filters.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: query
+        name: user_id
+        type: string
+        format: uuid
+        required: false
+      - in: query
+        name: start_date
+        type: string
+        format: date
+        required: false
+        example: "2026-04-01"
+      - in: query
+        name: end_date
+        type: string
+        format: date
+        required: false
+        example: "2026-04-30"
+      - in: query
+        name: project_id
+        type: string
+        format: uuid
+        required: false
+      - in: query
+        name: search
+        type: string
+        required: false
+        description: Search in description
+    responses:
+      200:
+        description: Time entries list returned
+      400:
+        description: Validation error
+    """
     user_id = request.args.get("user_id")
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
@@ -65,6 +156,50 @@ def get_time_entries_by_user_and_date_range_and_project():
 
 @time_entry_bp.put("/<time_entry_id>")
 def update_time_entry(time_entry_id):
+    """Update a time entry.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: path
+        name: time_entry_id
+        type: string
+        format: uuid
+        required: true
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+            - project_id
+            - date
+            - hours
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            project_id:
+              type: string
+              format: uuid
+            date:
+              type: string
+              format: date
+              example: "2026-04-16"
+            hours:
+              type: integer
+              description: Duration in minutes
+            description:
+              type: string
+    responses:
+      200:
+        description: Time entry updated
+      400:
+        description: Validation error
+      404:
+        description: Time entry not found
+    """
     data = request.get_json() or {}
 
     time_entry = TimeEntryService.update_time_entry_by_id(
@@ -81,6 +216,36 @@ def update_time_entry(time_entry_id):
 
 @time_entry_bp.delete("/<time_entry_id>")
 def delete_time_entry_by_id(time_entry_id):
+    """Delete a time entry.
+    ---
+    tags:
+      - Time Entries
+    parameters:
+      - in: path
+        name: time_entry_id
+        type: string
+        format: uuid
+        required: true
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+          properties:
+            user_id:
+              type: string
+              format: uuid
+              description: User performing the delete (must be the entry owner)
+    responses:
+      200:
+        description: Time entry deleted
+      403:
+        description: User is not the entry owner
+      404:
+        description: Time entry not found
+    """
     data = request.get_json() or {}
 
     TimeEntryService.delete_time_entry_by_id(

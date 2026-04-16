@@ -235,7 +235,9 @@ def test_list_projects_returns_public_and_owned_projects(
     member_user = user_factory(email="member-user@test.com")
 
     project_factory(owner=current_user, name="My Private Project", visibility="PRIVATE")
-    public_project = project_factory(owner=another_user, name="Public Team Project", visibility="PUBLIC")
+    public_project = project_factory(
+        owner=another_user, name="Public Team Project", visibility="PUBLIC"
+    )
     project_factory(owner=another_user, name="Private Team Project", visibility="PRIVATE")
 
     project_member_factory(project=public_project, user=member_user)
@@ -253,7 +255,9 @@ def test_list_projects_returns_public_and_owned_projects(
     assert "Public Team Project" in project_names
     assert "Private Team Project" not in project_names
 
-    public_project_data = next(project for project in data if project["name"] == "Public Team Project")
+    public_project_data = next(
+        project for project in data if project["name"] == "Public Team Project"
+    )
     assert public_project_data["is_owner"] is False
     assert public_project_data["number_of_members"] == 1
     assert public_project_data["members"][0]["email"] == "member-user@test.com"
@@ -267,9 +271,7 @@ def test_list_projects_filters_by_search_and_my_projects(client, user_factory, p
     project_factory(owner=current_user, name="Beta Mine", visibility="PUBLIC")
     project_factory(owner=another_user, name="Alpha Shared", visibility="PUBLIC")
 
-    response = client.get(
-        f"/projects?user_id={current_user.id}&search=Alpha&my_projects=true"
-    )
+    response = client.get(f"/projects?user_id={current_user.id}&search=Alpha&my_projects=true")
 
     assert response.status_code == 200
     body = response.get_json()

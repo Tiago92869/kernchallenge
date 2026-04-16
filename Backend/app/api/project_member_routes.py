@@ -10,6 +10,22 @@ project_member_bp = Blueprint("project_members", __name__, url_prefix="/project-
 
 @project_member_bp.get("/<project_id>/active")
 def get_currently_active_members(project_id):
+    """Get active members of a project.
+    ---
+    tags:
+      - Project Members
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+    responses:
+      200:
+        description: Active member list returned
+      404:
+        description: Project not found or archived
+    """
     project_members = ProjectMemberService.get_currently_active_members(UUID(project_id))
 
     return success_response(
@@ -22,6 +38,35 @@ def get_currently_active_members(project_id):
 
 @project_member_bp.put("/<project_id>/add")
 def add_member_to_project(project_id):
+    """Add one or more members to a project.
+    ---
+    tags:
+      - Project Members
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - users_ids
+          properties:
+            users_ids:
+              type: array
+              items:
+                type: string
+                format: uuid
+    responses:
+      200:
+        description: Members added successfully
+      404:
+        description: Project or user not found
+    """
     data = request.get_json() or {}
 
     ProjectMemberService.add_member_to_project(
@@ -34,6 +79,27 @@ def add_member_to_project(project_id):
 
 @project_member_bp.put("/<project_id>/<user_id>/remove")
 def remove_member_from_project(project_id, user_id):
+    """Remove a member from a project.
+    ---
+    tags:
+      - Project Members
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+      - in: path
+        name: user_id
+        type: string
+        format: uuid
+        required: true
+    responses:
+      200:
+        description: Member removed successfully
+      404:
+        description: Project, user, or membership not found
+    """
     ProjectMemberService.remove_member_from_project(
         project_id=UUID(project_id),
         user_id=UUID(user_id),

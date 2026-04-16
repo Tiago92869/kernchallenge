@@ -9,7 +9,7 @@ class ProjectSchema:
             "is_archived": project.is_archived,
             "owner_id": str(project.owner_id),
         }
-    
+
     @staticmethod
     def serialize_project_info(projects):
         return {
@@ -31,7 +31,9 @@ class ProjectSchema:
                 for member in projects.members
             ],
         }
-    
+
     @staticmethod
     def serialize_project_infos_list():
-        return lambda projects_list: [ProjectSchema.serialize_project_info(project) for project in projects_list]
+        return lambda projects_list: [
+            ProjectSchema.serialize_project_info(project) for project in projects_list
+        ]

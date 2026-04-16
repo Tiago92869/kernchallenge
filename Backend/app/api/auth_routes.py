@@ -15,6 +15,31 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 @auth_bp.post("/login")
 def login():
+    """Login and receive access and refresh tokens.
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - password
+          properties:
+            email:
+              type: string
+              format: email
+            password:
+              type: string
+    responses:
+      200:
+        description: Login successful, tokens returned
+      401:
+        description: Invalid credentials
+    """
     data = request.get_json() or {}
 
     user = UserService.login(
@@ -35,6 +60,18 @@ def login():
 @auth_bp.post("/signout")
 @jwt_required()
 def logout():
+    """Logout and revoke the current access token.
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Logged out successfully
+      401:
+        description: Missing or invalid token
+    """
     jti = get_jwt()["jti"]
     UserService.logout(jti=jti)
     return success_response(message="Logged out successfully")
@@ -43,6 +80,18 @@ def logout():
 @auth_bp.post("/refresh")
 @jwt_required(refresh=True)
 def refresh():
+    """Refresh the access token using a refresh token.
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: New access token returned
+      401:
+        description: Missing or invalid refresh token
+    """
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
     return success_response(data={"auth_token": access_token})
@@ -50,6 +99,26 @@ def refresh():
 
 @auth_bp.post("/forgot-password")
 def forgot_password():
+    """Request a password reset email.
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+          properties:
+            email:
+              type: string
+              format: email
+    responses:
+      200:
+        description: Reset email sent if account exists
+    """
     data = request.get_json() or {}
 
     UserService.reset_forgotten_password(email=data.get("email", ""))
