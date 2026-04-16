@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from app.api.errors import ForbiddenError, NotFoundError, ValidationError
@@ -214,3 +214,31 @@ class TimeEntryService:
             start_date=start_date,
             end_date=end_date,
         )
+
+    @staticmethod
+    def get_dashboard_activity_for_user(*, user_id: UUID, period: str) -> dict:
+        if period not in {"7d", "30d"}:
+            raise ValidationError(message="Invalid period, expected '7d' or '30d'")
+
+        if not UserService.does_user_exist_and_active(user_id):
+            raise NotFoundError(message=f"User with id {user_id} not found or is not active")
+
+        end_date = date.today()
+        days = 7 if period == "7d" else 30
+        start_date = end_date - timedelta(days=days - 1)
+
+        points = TimeEntryRepository.get_user_dashboard_activity(
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        total_minutes = sum(point["minutes"] for point in points)
+        return {
+            "period": period,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "points": points,
+            "total_minutes": total_minutes,
+            "total_hours": round(total_minutes / 60, 2),
+        }

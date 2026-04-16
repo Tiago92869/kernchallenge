@@ -3,6 +3,15 @@ from datetime import date, timedelta
 from app.models.time_entry import TimeEntry
 
 
+def _login_and_get_access_token(client, email, password="password123"):
+    response = client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert response.status_code == 200
+    return response.get_json()["data"]["auth_token"]
+
+
 def test_create_time_entry_returns_201(client, user_factory, project_factory):
     user = user_factory(email="route-time-entry-create-user@test.com")
     project = project_factory()
@@ -835,3 +844,121 @@ def test_get_time_entry_summary_excludes_deleted_entries(
     assert body["success"] is True
     assert body["data"]["total_entries"] == 1
     assert body["data"]["total_minutes"] == 30
+
+
+def test_get_dashboard_activity_returns_200_for_7d(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-dashboard-7d@test.com", password="password123")
+    project = project_factory(owner=user)
+
+    time_entry_factory(user=user, project=project, work_date=date.today(), duration_minutes=120)
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today() - timedelta(days=6),
+        duration_minutes=60,
+    )
+
+    access_token = _login_and_get_access_token(client, email=user.email)
+
+    response = client.get(
+        "/time-entries/dashboard/activity",
+        query_string={"period": "7d"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["period"] == "7d"
+    assert len(body["data"]["points"]) == 7
+    assert body["data"]["total_minutes"] == 180
+
+
+def test_get_dashboard_activity_returns_200_for_30d(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-dashboard-30d@test.com", password="password123")
+    project = project_factory(owner=user)
+
+    time_entry_factory(
+        user=user,
+        project=project,
+        work_date=date.today() - timedelta(days=29),
+        duration_minutes=30,
+    )
+
+    access_token = _login_and_get_access_token(client, email=user.email)
+
+    response = client.get(
+        "/time-entries/dashboard/activity",
+        query_string={"period": "30d"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["period"] == "30d"
+    assert len(body["data"]["points"]) == 30
+
+
+def test_get_dashboard_activity_uses_authenticated_user_entries_only(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user_a = user_factory(email="route-dashboard-user-a@test.com", password="password123")
+    user_b = user_factory(email="route-dashboard-user-b@test.com", password="password123")
+    project_a = project_factory(owner=user_a)
+    project_b = project_factory(owner=user_b)
+
+    time_entry_factory(user=user_a, project=project_a, work_date=date.today(), duration_minutes=50)
+    time_entry_factory(user=user_b, project=project_b, work_date=date.today(), duration_minutes=200)
+
+    access_token = _login_and_get_access_token(client, email=user_a.email)
+
+    response = client.get(
+        "/time-entries/dashboard/activity",
+        query_string={"period": "7d"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["total_minutes"] == 50
+
+
+def test_get_dashboard_activity_excludes_deleted_entries(
+    client, time_entry_factory, user_factory, project_factory
+):
+    user = user_factory(email="route-dashboard-deleted@test.com", password="password123")
+    project = project_factory(owner=user)
+
+    time_entry_factory(user=user, project=project, work_date=date.today(), duration_minutes=30)
+    deleted = time_entry_factory(
+        user=user, project=project, work_date=date.today(), duration_minutes=70
+    )
+    client.delete(f"/time-entries/{deleted.id}", json={"user_id": str(user.id)})
+
+    access_token = _login_and_get_access_token(client, email=user.email)
+
+    response = client.get(
+        "/time-entries/dashboard/activity",
+        query_string={"period": "7d"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["total_minutes"] == 30
+
+
+def test_get_dashboard_activity_returns_401_without_token(client):
+    response = client.get(
+        "/time-entries/dashboard/activity",
+        query_string={"period": "7d"},
+    )
+
+    assert response.status_code == 401

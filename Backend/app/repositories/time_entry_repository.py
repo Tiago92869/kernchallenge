@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from app.extensions import db
 from app.models.time_entry import TimeEntry
@@ -98,6 +98,40 @@ class TimeEntryRepository:
             "minutes_today": minutes_today,
             "hours_today": round(minutes_today / 60, 2),
         }
+
+    @staticmethod
+    def get_user_dashboard_activity(*, user_id, start_date, end_date):
+        entries = (
+            TimeEntry.query.filter(
+                TimeEntry.deleted_at.is_(None),
+                TimeEntry.user_id == user_id,
+                TimeEntry.work_date >= start_date,
+                TimeEntry.work_date <= end_date,
+            )
+            .order_by(TimeEntry.work_date.asc())
+            .all()
+        )
+
+        minutes_by_day = {}
+        for entry in entries:
+            minutes_by_day[entry.work_date] = (
+                minutes_by_day.get(entry.work_date, 0) + entry.duration_minutes
+            )
+
+        points = []
+        current_day = start_date
+        while current_day <= end_date:
+            minutes = minutes_by_day.get(current_day, 0)
+            points.append(
+                {
+                    "date": current_day.isoformat(),
+                    "minutes": minutes,
+                    "hours": round(minutes / 60, 2),
+                }
+            )
+            current_day += timedelta(days=1)
+
+        return points
 
     @staticmethod
     def get_time_entries_by_project(
