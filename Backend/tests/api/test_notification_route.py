@@ -1,6 +1,15 @@
 from datetime import date, datetime, timedelta
 
 
+def _login_and_get_access_token(client, email, password="password123"):
+    response = client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert response.status_code == 200
+    return response.get_json()["data"]["auth_token"]
+
+
 def test_get_notifications_by_recipient_returns_200(
     client, notification_factory, user_factory, project_factory
 ):
@@ -17,11 +26,11 @@ def test_get_notifications_by_recipient_returns_200(
         message='"Owner One" just added you to "TimeSync"',
     )
 
+    access_token = _login_and_get_access_token(client, email=recipient.email)
+
     response = client.get(
         "/notifications",
-        query_string={
-            "recipient_user_id": str(recipient.id),
-        },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -55,14 +64,16 @@ def test_get_notifications_by_recipient_returns_200_with_filters(
         created_at=datetime.now(),
     )
 
+    access_token = _login_and_get_access_token(client, email=recipient.email)
+
     response = client.get(
         "/notifications",
         query_string={
-            "recipient_user_id": str(recipient.id),
             "search": "do not",
             "date": date.today().isoformat(),
             "project_id": str(project.id),
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -74,13 +85,14 @@ def test_get_notifications_by_recipient_returns_200_with_filters(
 
 def test_get_notifications_by_recipient_returns_400_for_invalid_date(client, user_factory):
     recipient = user_factory(email="route-notification-invalid-date@test.com")
+    access_token = _login_and_get_access_token(client, email=recipient.email)
 
     response = client.get(
         "/notifications",
         query_string={
-            "recipient_user_id": str(recipient.id),
             "date": "2026/03/25",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -92,26 +104,21 @@ def test_get_notifications_by_recipient_returns_400_for_invalid_date(client, use
 def test_get_notifications_by_recipient_returns_404_when_user_missing(client):
     response = client.get(
         "/notifications",
-        query_string={
-            "recipient_user_id": "550e8400-e29b-41d4-a716-446655440000",
-        },
     )
 
-    assert response.status_code == 404
-    body = response.get_json()
-    assert body["success"] is False
-    assert body["error"]["message"] == "User not found"
+    assert response.status_code == 401
 
 
 def test_get_notifications_by_recipient_returns_404_when_project_missing(client, user_factory):
     recipient = user_factory(email="route-notification-missing-project@test.com")
+    access_token = _login_and_get_access_token(client, email=recipient.email)
 
     response = client.get(
         "/notifications",
         query_string={
-            "recipient_user_id": str(recipient.id),
             "project_id": "550e8400-e29b-41d4-a716-446655440001",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 404

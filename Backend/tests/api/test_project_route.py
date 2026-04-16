@@ -14,15 +14,16 @@ def _login_and_get_access_token(client, email, password="password123"):
 
 def test_create_project_returns_201(client, user_factory):
     owner = user_factory()
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.post(
         "/projects",
         json={
-            "owner_id": str(owner.id),
             "name": "TimeSync",
             "description": "Main project",
             "visibility": "PRIVATE",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 201
@@ -38,15 +39,16 @@ def test_create_project_returns_201(client, user_factory):
 
 def test_create_project_returns_400_when_name_is_blank(client, user_factory):
     owner = user_factory()
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.post(
         "/projects",
         json={
-            "owner_id": str(owner.id),
             "name": "   ",
             "description": "Main project",
             "visibility": "PRIVATE",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -58,15 +60,16 @@ def test_create_project_returns_400_when_name_is_blank(client, user_factory):
 
 def test_create_project_returns_400_when_visibility_is_invalid(client, user_factory):
     owner = user_factory()
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.post(
         "/projects",
         json={
-            "owner_id": str(owner.id),
             "name": "Project",
             "description": "Main project",
             "visibility": "INVALID",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -138,13 +141,15 @@ def test_update_project_returns_400_when_visibility_is_invalid(client, project_f
 
 def test_change_project_archive_status_archives_returns_200(client, project_factory):
     project = project_factory(is_archived=False)
+    owner = project.owner
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.patch(
         f"/projects/{project.id}/archive",
         json={
-            "user_id": str(project.owner_id),
             "action": "archive",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -155,13 +160,15 @@ def test_change_project_archive_status_archives_returns_200(client, project_fact
 
 def test_change_project_archive_status_unarchives_returns_200(client, project_factory):
     project = project_factory(is_archived=True)
+    owner = project.owner
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.patch(
         f"/projects/{project.id}/archive",
         json={
-            "user_id": str(project.owner_id),
             "action": "unarchive",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
@@ -172,13 +179,14 @@ def test_change_project_archive_status_unarchives_returns_200(client, project_fa
 
 def test_change_project_archive_status_returns_404_when_project_not_found(client, user_factory):
     user = user_factory(email="archive-route-owner@test.com")
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.patch(
         "/projects/00000000-0000-0000-0000-000000000000/archive",
         json={
-            "user_id": str(user.id),
             "action": "archive",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 404
@@ -192,13 +200,14 @@ def test_change_project_archive_status_returns_403_when_user_not_owner(
 ):
     project = project_factory(is_archived=False)
     user = user_factory(email="archive-route-not-owner@test.com")
+    access_token = _login_and_get_access_token(client, email=user.email)
 
     response = client.patch(
         f"/projects/{project.id}/archive",
         json={
-            "user_id": str(user.id),
             "action": "archive",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 403
@@ -209,13 +218,15 @@ def test_change_project_archive_status_returns_403_when_user_not_owner(
 
 def test_change_project_archive_status_returns_400_for_invalid_action(client, project_factory):
     project = project_factory(is_archived=False)
+    owner = project.owner
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.patch(
         f"/projects/{project.id}/archive",
         json={
-            "user_id": str(project.owner_id),
             "action": "invalid",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -226,13 +237,15 @@ def test_change_project_archive_status_returns_400_for_invalid_action(client, pr
 
 def test_change_project_archive_status_returns_400_for_same_state(client, project_factory):
     project = project_factory(is_archived=True)
+    owner = project.owner
+    access_token = _login_and_get_access_token(client, email=owner.email)
 
     response = client.patch(
         f"/projects/{project.id}/archive",
         json={
-            "user_id": str(project.owner_id),
             "action": "archive",
         },
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 400
@@ -256,7 +269,12 @@ def test_list_projects_returns_public_and_owned_projects(
 
     project_member_factory(project=public_project, user=member_user)
 
-    response = client.get(f"/projects?user_id={current_user.id}")
+    access_token = _login_and_get_access_token(client, email=current_user.email)
+
+    response = client.get(
+        "/projects",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
     assert response.status_code == 200
     body = response.get_json()
@@ -285,7 +303,12 @@ def test_list_projects_filters_by_search_and_my_projects(client, user_factory, p
     project_factory(owner=current_user, name="Beta Mine", visibility="PUBLIC")
     project_factory(owner=another_user, name="Alpha Shared", visibility="PUBLIC")
 
-    response = client.get(f"/projects?user_id={current_user.id}&search=Alpha&my_projects=true")
+    access_token = _login_and_get_access_token(client, email=current_user.email)
+
+    response = client.get(
+        "/projects?search=Alpha&my_projects=true",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
     assert response.status_code == 200
     body = response.get_json()
@@ -295,28 +318,21 @@ def test_list_projects_filters_by_search_and_my_projects(client, user_factory, p
     assert body["data"][0]["is_owner"] is True
 
 
-def test_list_projects_returns_400_when_user_id_is_missing(client):
+def test_list_projects_returns_401_without_token(client):
     response = client.get("/projects")
 
-    assert response.status_code == 400
-    body = response.get_json()
-    assert body["success"] is False
-    assert body["error"]["message"] == "Query param 'user_id' is required"
-
-
-def test_list_projects_returns_400_when_user_id_is_invalid(client):
-    response = client.get("/projects?user_id=not-a-uuid")
-
-    assert response.status_code == 400
-    body = response.get_json()
-    assert body["success"] is False
-    assert body["error"]["message"] == "Invalid user_id"
+    assert response.status_code == 401
 
 
 def test_list_projects_returns_400_when_my_projects_is_invalid(client, user_factory):
     current_user = user_factory(email="list-bool-validate@test.com")
 
-    response = client.get(f"/projects?user_id={current_user.id}&my_projects=invalid")
+    access_token = _login_and_get_access_token(client, email=current_user.email)
+
+    response = client.get(
+        "/projects?my_projects=invalid",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
     assert response.status_code == 400
     body = response.get_json()

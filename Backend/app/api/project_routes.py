@@ -24,11 +24,14 @@ def _parse_bool_query_param(value: str | None, *, field_name: str) -> bool:
 
 
 @project_bp.post("")
+@jwt_required()
 def create_project():
     """Create a new project.
     ---
     tags:
       - Projects
+    security:
+      - Bearer: []
     parameters:
       - in: body
         name: body
@@ -36,12 +39,8 @@ def create_project():
         schema:
           type: object
           required:
-            - owner_id
             - name
           properties:
-            owner_id:
-              type: string
-              format: uuid
             name:
               type: string
             description:
@@ -53,13 +52,15 @@ def create_project():
     responses:
       201:
         description: Project created
+      401:
+        description: Missing or invalid auth token
       400:
         description: Validation error
     """
     data = request.get_json() or {}
 
     project = ProjectService.create_project(
-        owner_id=UUID(data.get("owner_id")),
+        owner_id=UUID(get_jwt_identity()),
         name=data.get("name"),
         description=data.get("description"),
         visibility=data.get("visibility", "PRIVATE"),
@@ -72,18 +73,15 @@ def create_project():
 
 
 @project_bp.get("")
+@jwt_required()
 def list_projects():
     """List available projects.
     ---
     tags:
       - Projects
+    security:
+      - Bearer: []
     parameters:
-      - in: query
-        name: user_id
-        type: string
-        format: uuid
-        required: true
-        description: Current user id used for ownership visibility checks
       - in: query
         name: search
         type: string
@@ -97,17 +95,12 @@ def list_projects():
     responses:
       200:
         description: Project list returned
+      401:
+        description: Missing or invalid auth token
       400:
         description: Validation error
     """
-    user_id = request.args.get("user_id")
-    if not user_id:
-        raise ValidationError(message="Query param 'user_id' is required")
-
-    try:
-        parsed_user_id = UUID(user_id)
-    except ValueError as exc:
-        raise ValidationError(message="Invalid user_id") from exc
+    parsed_user_id = UUID(get_jwt_identity())
 
     projects = ProjectService.list_available_projects(
         user_id=parsed_user_id,
@@ -193,11 +186,14 @@ def update_project(project_id):
 
 
 @project_bp.patch("/<project_id>/archive")
+@jwt_required()
 def change_project_archive_status(project_id):
     """Archive or unarchive a project.
     ---
     tags:
       - Projects
+    security:
+      - Bearer: []
     parameters:
       - in: path
         name: project_id
@@ -210,18 +206,16 @@ def change_project_archive_status(project_id):
         schema:
           type: object
           required:
-            - user_id
             - action
           properties:
-            user_id:
-              type: string
-              format: uuid
             action:
               type: string
               enum: [archive, unarchive]
     responses:
       200:
         description: Project archive status changed
+      401:
+        description: Missing or invalid auth token
       400:
         description: Validation error
       403:
@@ -233,7 +227,7 @@ def change_project_archive_status(project_id):
 
     project = ProjectService.change_archive_status(
         project_id=UUID(project_id),
-        user_id=UUID(data.get("user_id")),
+        user_id=UUID(get_jwt_identity()),
         action=data.get("action"),
     )
 

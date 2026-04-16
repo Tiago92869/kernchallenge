@@ -6,6 +6,7 @@ from app.api.responses import success_response
 from app.schemas.notification_schema import NotificationSchema
 from app.services.notification_service import NotificationService
 from flask import Blueprint, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 notification_bp = Blueprint("notifications", __name__, url_prefix="/notifications")
 
@@ -18,17 +19,15 @@ def _parse_date(value, field_name):
 
 
 @notification_bp.get("")
+@jwt_required()
 def get_notifications_by_recipient():
     """List notifications for a recipient user.
     ---
     tags:
       - Notifications
+    security:
+      - Bearer: []
     parameters:
-      - in: query
-        name: recipient_user_id
-        type: string
-        format: uuid
-        required: true
       - in: query
         name: search
         type: string
@@ -48,16 +47,17 @@ def get_notifications_by_recipient():
     responses:
       200:
         description: Notification list returned
+      401:
+        description: Missing or invalid auth token
       400:
         description: Validation error
     """
-    recipient_user_id = request.args.get("recipient_user_id")
     search = request.args.get("search")
     created_date = request.args.get("date")
     project_id = request.args.get("project_id")
 
     notifications = NotificationService.get_notifications_by_recipient(
-        recipient_user_id=UUID(recipient_user_id),
+        recipient_user_id=UUID(get_jwt_identity()),
         search=search,
         created_date=_parse_date(created_date, "date") if created_date else None,
         project_id=UUID(project_id) if project_id else None,
