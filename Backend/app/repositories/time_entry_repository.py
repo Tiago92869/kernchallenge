@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from app.extensions import db
+from app.models.project import Project
 from app.models.time_entry import TimeEntry
 from app.models.user import User
 
@@ -132,6 +133,34 @@ class TimeEntryRepository:
             current_day += timedelta(days=1)
 
         return points
+
+    @staticmethod
+    def get_recent_user_dashboard_preview_entries(*, user_id, limit=4):
+        entries = (
+            TimeEntry.query.join(Project, TimeEntry.project_id == Project.id)
+            .filter(
+                TimeEntry.deleted_at.is_(None),
+                TimeEntry.user_id == user_id,
+            )
+            .order_by(TimeEntry.work_date.desc(), TimeEntry.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+        preview = []
+        for entry in entries:
+            preview.append(
+                {
+                    "id": str(entry.id),
+                    "day": entry.work_date.day,
+                    "month": entry.work_date.month,
+                    "title": entry.project.name,
+                    "description": entry.description,
+                    "time": entry.duration_minutes,
+                }
+            )
+
+        return preview
 
     @staticmethod
     def get_time_entries_by_project(

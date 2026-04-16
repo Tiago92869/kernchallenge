@@ -397,6 +397,30 @@ def get_dashboard_activity():
     return success_response(data=activity)
 
 
+@time_entry_bp.get("/dashboard/preview")
+@jwt_required()
+def get_dashboard_preview_entries():
+    """Get a preview list of recent entries for the authenticated user.
+    ---
+    tags:
+      - Time Entries
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Dashboard preview entries returned
+      401:
+        description: Missing or invalid auth token
+      404:
+        description: Authenticated user not found or inactive
+    """
+    user_id = UUID(get_jwt_identity())
+
+    preview = TimeEntryService.get_dashboard_preview_for_user(user_id=user_id)
+
+    return success_response(data=preview)
+
+
 @time_entry_bp.put("/<time_entry_id>")
 def update_time_entry(time_entry_id):
     """Update a time entry.
