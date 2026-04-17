@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
 import logoImage from '../../../Documentation/images/logo.png'
@@ -17,9 +17,31 @@ function timeAgo(dateString) {
   return `${diff} days ago`
 }
 
+const ROUTE_TITLES = [
+  { pattern: /^\/time-entries\/[^/]+/, title: 'Time Entry Details', back: true },
+  { pattern: /^\/time-entries/, title: 'My Entries' },
+  { pattern: /^\/projects\/[^/]+/, title: 'Project Details', back: true },
+  { pattern: /^\/projects/, title: 'Projects' },
+  { pattern: /^\/profile/, title: 'Profile' },
+  { pattern: /^\/notifications/, title: 'Notifications' },
+  { pattern: /^\/dashboard/, title: 'Dashboard' },
+]
+
+function usePageMeta() {
+  const { pathname } = useLocation()
+  for (const route of ROUTE_TITLES) {
+    if (route.pattern.test(pathname)) {
+      return { title: route.title, back: !!route.back }
+    }
+  }
+  return { title: 'Dashboard', back: false }
+}
+
 function AppLayout() {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
+  const { title, back } = usePageMeta()
 
   return (
     <div className="workspace-shell">
@@ -51,7 +73,16 @@ function AppLayout() {
 
       <section className="workspace-main">
         <header className="workspace-header">
-          <h1>Dashboard</h1>
+          <div className="workspace-page-title">
+            {back && (
+              <button type="button" className="entry-back-link" onClick={() => navigate(-1)} aria-label="Go back">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.7 5.3 8 12l6.7 6.7 1.4-1.4L10.8 12l5.3-5.3z" />
+                </svg>
+              </button>
+            )}
+            <h1>{title}</h1>
+          </div>
           <div className="workspace-header-actions" aria-label="User and alerts">
             <div
               className="notify-wrap"
