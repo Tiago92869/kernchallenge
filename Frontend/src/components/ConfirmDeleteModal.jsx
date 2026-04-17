@@ -1,4 +1,14 @@
-function ConfirmDeleteModal({ isOpen, description, onCancel, onConfirm }) {
+function ConfirmDeleteModal({
+  isOpen,
+  description,
+  onCancel,
+  onConfirm,
+  title = 'Delete Time Entry',
+  message = 'Are you sure that you want to delete this entry?',
+  confirmText = 'Yes',
+  cancelText = 'No',
+  confirmClassName = 'btn-danger',
+}) {
   if (!isOpen) {
     return null
   }
@@ -9,23 +19,23 @@ function ConfirmDeleteModal({ isOpen, description, onCancel, onConfirm }) {
         className="modal-card confirm-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="confirm-delete-title"
+        aria-labelledby="confirm-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="modal-head">
-          <h2 id="confirm-delete-title">Delete Time Entry</h2>
+          <h2 id="confirm-modal-title">{title}</h2>
         </div>
 
         <div className="modal-body stack-sm">
-          <p className="confirm-copy">Are you sure that you want to delete this entry?</p>
+          <p className="confirm-copy">{message}</p>
           {description ? <p className="muted confirm-detail">{description}</p> : null}
 
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onCancel}>
-              No
+              {cancelText}
             </button>
-            <button type="button" className="btn-danger" onClick={onConfirm}>
-              Yes
+            <button type="button" className={confirmClassName} onClick={onConfirm}>
+              {confirmText}
             </button>
           </div>
         </div>

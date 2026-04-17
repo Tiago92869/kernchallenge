@@ -2,19 +2,18 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
+import { MOCK_NOTIFICATIONS } from '../mocks/notifications'
 import logoImage from '../../../Documentation/images/logo.png'
 
-const MOCK_NOTIFICATIONS = [
-  { id: 'n1', message: 'You were added to Project Alpha', created_at: '2026-04-16T11:20:00' },
-  { id: 'n2', message: 'New project Marketing Campaign created', created_at: '2026-04-15T10:15:00' },
-  { id: 'n3', message: 'Time entry approved by manager', created_at: '2026-04-14T09:00:00' },
-]
-
 function timeAgo(dateString) {
-  const diff = Math.floor((Date.now() - new Date(dateString)) / (1000 * 60 * 60 * 24))
-  if (diff <= 0) return 'Today'
-  if (diff === 1) return '1 day ago'
-  return `${diff} days ago`
+  const created = new Date(dateString).getTime()
+  const diffMs = Math.max(0, Date.now() - created)
+  const oneHour = 60 * 60 * 1000
+  const oneDay = 24 * oneHour
+  if (diffMs < oneHour) return `${Math.max(1, Math.floor(diffMs / (60 * 1000)))}m ago`
+  if (diffMs < oneDay) return `${Math.floor(diffMs / oneHour)}h ago`
+  if (diffMs < oneDay * 2) return 'Yesterday'
+  return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 const ROUTE_TITLES = [
@@ -42,6 +41,7 @@ function AppLayout() {
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
   const { title, back } = usePageMeta()
+  const unreadCount = MOCK_NOTIFICATIONS.filter((item) => !item.isRead).length
 
   return (
     <div className="workspace-shell">
@@ -91,16 +91,22 @@ function AppLayout() {
             >
               <Link to="/notifications" className="notify-btn" aria-label="Open notifications">
                 <span className="notify-icon" aria-hidden="true">🔔</span>
-                <span className="notify-badge">{MOCK_NOTIFICATIONS.length}</span>
+                <span className="notify-badge">{unreadCount}</span>
               </Link>
               {notifOpen && (
                 <div className="notif-popup" role="menu">
                   <p className="notif-popup-title">Notifications</p>
                   <ul>
-                    {MOCK_NOTIFICATIONS.map((n) => (
+                    {MOCK_NOTIFICATIONS.slice(0, 4).map((n) => (
                       <li key={n.id}>
-                        <span className="notif-popup-msg">{n.message}</span>
-                        <span className="notif-popup-time">{timeAgo(n.created_at)}</span>
+                        <Link
+                          to={`/notifications?open=${encodeURIComponent(n.id)}`}
+                          className="notif-popup-item"
+                          onClick={() => setNotifOpen(false)}
+                        >
+                          <span className="notif-popup-msg">{n.message}</span>
+                          <span className="notif-popup-time">{timeAgo(n.createdAt)}</span>
+                        </Link>
                       </li>
                     ))}
                   </ul>
