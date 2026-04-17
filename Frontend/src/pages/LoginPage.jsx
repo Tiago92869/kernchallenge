@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
+import logoImage from '../../../Documentation/images/logo.png'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -10,6 +11,7 @@ function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
 
   const fromPath = location.state?.from?.pathname || '/dashboard'
@@ -27,40 +29,67 @@ function LoginPage() {
   }
 
   return (
-    <div className="auth-wrap">
-      <form className="auth-card" onSubmit={onSubmit}>
-        <h1>Sign In</h1>
-        <p className="muted">Use your backend user credentials.</p>
+    <main className="app-frame">
+      <section className="login-shell">
+        <section className="login-panel">
+          <form className="login-card" onSubmit={onSubmit} noValidate>
+            <Link to="/" className="brand-mark login-brand" aria-label="TimeSync home">
+              <img src={logoImage} className="brand-logo login-logo" alt="TimeSync" />
+            </Link>
 
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
+            <label className="field" htmlFor="email">
+              Email
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                required
+              />
+            </label>
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
+            <label className="field" htmlFor="password">
+              Password
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </label>
 
-        {error ? <p className="error">{error}</p> : null}
+            <div className="login-row">
+              <label className="remember-choice" htmlFor="rememberMe">
+                <input
+                  id="rememberMe"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                />
+                <span>Remember me</span>
+              </label>
 
-        <button className="btn" type="submit" disabled={isLoading}>
-          {isLoading ? 'Signing in...' : 'Sign In'}
-        </button>
+              <Link to="/forgot-password" className="inline-link">
+                Forgot password?
+              </Link>
+            </div>
 
-        <p className="muted">
-          Need an account? <Link to="/signup">Create one</Link>
-        </p>
-      </form>
-    </div>
+            {error ? <p className="error">{error}</p> : null}
+
+            <button className="btn-primary login-submit" type="submit" disabled={isLoading}>
+              {isLoading ? 'Logging In...' : 'Log In'}
+            </button>
+
+            <p className="muted login-footer-text">
+              Don&apos;t have an account? <Link to="/signup" className="inline-link">Sign up</Link>
+            </p>
+          </form>
+        </section>
+      </section>
+    </main>
   )
 }
 

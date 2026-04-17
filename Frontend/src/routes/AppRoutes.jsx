@@ -5,6 +5,7 @@ import ProtectedRoute from '../components/ProtectedRoute'
 import PublicOnlyRoute from '../components/PublicOnlyRoute'
 import DashboardPage from '../pages/DashboardPage'
 import CreateAccountPage from '../pages/CreateAccountPage'
+import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import LandingPage from '../pages/LandingPage'
 import LoginPage from '../pages/LoginPage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -38,6 +39,15 @@ function AppRoutes() {
         element={
           <PublicOnlyRoute>
             <CreateAccountPage />
+          </PublicOnlyRoute>
+        }
+      />
+
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicOnlyRoute>
+            <ForgotPasswordPage />
           </PublicOnlyRoute>
         }
       />
