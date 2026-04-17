@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      if (token) {
+      if (token && token !== 'dev-bypass-token') {
         await logoutRequest()
       }
     } catch {

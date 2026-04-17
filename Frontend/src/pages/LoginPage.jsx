@@ -1,31 +1,19 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
-import { useAuth } from '../hooks/useAuth'
 import logoImage from '../../../Documentation/images/logo.png'
 
 function LoginPage() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { login, isLoading } = useAuth()
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
-  const [error, setError] = useState('')
 
-  const fromPath = location.state?.from?.pathname || '/dashboard'
-
-  const onSubmit = async (event) => {
+  const onSubmit = (event) => {
     event.preventDefault()
-    setError('')
 
-    try {
-      await login({ email, password })
-      navigate(fromPath, { replace: true })
-    } catch {
-      setError('Invalid email or password')
-    }
+    // Temporary bypass: skip credential validation and allow dashboard access.
+    localStorage.setItem('auth_token', 'dev-bypass-token')
+    window.location.assign('/dashboard')
   }
 
   return (
@@ -77,10 +65,8 @@ function LoginPage() {
               </Link>
             </div>
 
-            {error ? <p className="error">{error}</p> : null}
-
-            <button className="btn-primary login-submit" type="submit" disabled={isLoading}>
-              {isLoading ? 'Logging In...' : 'Log In'}
+            <button className="btn-primary login-submit" type="submit">
+              Log In
             </button>
 
             <p className="muted login-footer-text">
