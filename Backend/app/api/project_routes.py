@@ -114,6 +114,39 @@ def list_projects():
     return success_response(data=ProjectSchema.serialize_project_infos_list()(projects))
 
 
+@project_bp.get("/<project_id>")
+@jwt_required()
+def get_project_details(project_id):
+    """Get project details for the authenticated user.
+    ---
+    tags:
+      - Projects
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: project_id
+        type: string
+        format: uuid
+        required: true
+    responses:
+      200:
+        description: Project details returned
+      401:
+        description: Missing or invalid auth token
+      403:
+        description: User does not have access to this project
+      404:
+        description: Project not found
+    """
+    project = ProjectService.get_project_details(
+        project_id=UUID(project_id),
+        user_id=UUID(get_jwt_identity()),
+    )
+
+    return success_response(data=ProjectSchema.serialize_project_details(project))
+
+
 @project_bp.get("/dashboard/activity")
 @jwt_required()
 def get_project_dashboard_activity():

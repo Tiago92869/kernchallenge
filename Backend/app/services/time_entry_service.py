@@ -131,7 +131,7 @@ class TimeEntryService:
     def delete_time_entry_by_id(time_entry_id: UUID, user_id: UUID) -> None:
         time_entry = TimeEntryRepository.get_time_entry_by_id(time_entry_id)
 
-        if not time_entry:
+        if not time_entry or time_entry.deleted_at is not None:
             raise NotFoundError(message="Time entry not found")
 
         if time_entry.user_id != user_id:

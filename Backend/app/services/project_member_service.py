@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from app.api.errors import NotFoundError
+from app.api.errors import ForbiddenError, NotFoundError
 from app.models.notification import NotificationType
 from app.models.project_member import ProjectMember
 from app.repositories.project_member_repository import ProjectMemberRepository
@@ -13,10 +13,28 @@ from app.services.user_service import UserService
 
 class ProjectMemberService:
     @staticmethod
-    def add_member_to_project(project_id: UUID, users_ids: list[UUID]):
+    def _ensure_project_owner(*, project_id: UUID, actor_user_id: UUID) -> None:
+        project = ProjectRepository.get_by_id(project_id)
+
+        if not project or project.archived_at is not None:
+            raise NotFoundError(message="Project not found or is archived")
+
+        if project.owner_id != actor_user_id:
+            raise ForbiddenError(message="User is not the project owner")
+
+    @staticmethod
+    def add_member_to_project(
+        project_id: UUID, users_ids: list[UUID], actor_user_id: UUID | None = None
+    ):
 
         if not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
+
+        if actor_user_id is not None:
+            ProjectMemberService._ensure_project_owner(
+                project_id=project_id,
+                actor_user_id=actor_user_id,
+            )
 
         project = ProjectRepository.get_by_id(project_id)
         owner = project.owner
@@ -51,9 +69,19 @@ class ProjectMemberService:
             )
 
     @staticmethod
-    def remove_member_from_project(project_id: UUID, user_id: UUID) -> ProjectMember:
+    def remove_member_from_project(
+        project_id: UUID,
+        user_id: UUID,
+        actor_user_id: UUID | None = None,
+    ) -> ProjectMember:
         if not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
+
+        if actor_user_id is not None:
+            ProjectMemberService._ensure_project_owner(
+                project_id=project_id,
+                actor_user_id=actor_user_id,
+            )
 
         if not UserService.does_user_exist_and_active(user_id):
             raise NotFoundError(message=f"User with id {user_id} not found or is not active")
@@ -85,8 +113,17 @@ class ProjectMemberService:
         return updated_member
 
     @staticmethod
-    def get_currently_active_members(project_id: UUID) -> list[ProjectMember]:
+    def get_currently_active_members(
+        project_id: UUID,
+        actor_user_id: UUID | None = None,
+    ) -> list[ProjectMember]:
         if not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
+
+        if actor_user_id is not None:
+            ProjectMemberService._ensure_project_owner(
+                project_id=project_id,
+                actor_user_id=actor_user_id,
+            )
 
         return ProjectMemberRepository.get_currently_active_members(project_id)

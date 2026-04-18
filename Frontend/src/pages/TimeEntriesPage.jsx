@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 import TimeEntryFormModal from '../components/TimeEntryFormModal'
-import { MOCK_PROJECTS, MOCK_TIME_ENTRIES, getMockProjectById } from '../mocks/timeEntries'
+import { createTimeEntry, deleteTimeEntry, getMyProjects, getTimeEntries, updateTimeEntry } from '../services/timeEntryService'
 
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString(undefined, {
@@ -38,20 +38,6 @@ function getProjectInitials(name) {
     .toUpperCase()
 }
 
-function buildFocusLabel(description) {
-  const normalized = (description || '').trim()
-  if (!normalized) {
-    return 'General work entry'
-  }
-
-  const sentence = normalized.split(/[.!?]/)[0].trim()
-  if (sentence.length <= 36) {
-    return sentence
-  }
-
-  return `${sentence.slice(0, 33)}...`
-}
-
 function matchesDateRange(dateString, fromDate, toDate) {
   if (!fromDate && !toDate) return true
   if (fromDate && dateString < fromDate) return false
@@ -59,9 +45,23 @@ function matchesDateRange(dateString, fromDate, toDate) {
   return true
 }
 
+// Normalize API entry to internal shape used throughout the page
+function normalizeEntry(apiEntry, projectsById) {
+  return {
+    id: apiEntry.id,
+    project_id: apiEntry.project_id,
+    date: apiEntry.date,
+    durationMinutes: apiEntry.hours, // API field named "hours" contains minutes
+    description: apiEntry.description,
+    project: projectsById[apiEntry.project_id] || null,
+  }
+}
+
 function TimeEntriesPage() {
   const navigate = useNavigate()
-  const [entries, setEntries] = useState(() => MOCK_TIME_ENTRIES.map((entry) => ({ ...entry })))
+  const [entries, setEntries] = useState([])
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchValue, setSearchValue] = useState('')
   const [projectFilter, setProjectFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
@@ -69,14 +69,32 @@ function TimeEntriesPage() {
   const [formState, setFormState] = useState({ mode: null, entry: null })
   const [entryToDelete, setEntryToDelete] = useState(null)
 
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    const [entriesResult, projectsResult] = await Promise.allSettled([getTimeEntries(), getMyProjects()])
+
+    const fetchedProjects = projectsResult.status === 'fulfilled' ? projectsResult.value : []
+    const projectsById = Object.fromEntries(fetchedProjects.map((p) => [p.id, p]))
+
+    setProjects(fetchedProjects)
+
+    if (entriesResult.status === 'fulfilled') {
+      setEntries(entriesResult.value.map((entry) => normalizeEntry(entry, projectsById)))
+    }
+
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
   const filteredEntries = useMemo(() => {
     const normalizedSearch = searchValue.trim().toLowerCase()
 
     return entries
       .filter((entry) => {
-        const project = getMockProjectById(entry.projectId)
-
-        if (projectFilter !== 'all' && entry.projectId !== projectFilter) {
+        if (projectFilter !== 'all' && entry.project_id !== projectFilter) {
           return false
         }
 
@@ -88,21 +106,17 @@ function TimeEntriesPage() {
           return true
         }
 
-        return [entry.description, entry.focus, project?.name || '']
+        return [entry.description, entry.project?.name || '']
           .join(' ')
           .toLowerCase()
           .includes(normalizedSearch)
       })
-      .map((entry) => ({
-        ...entry,
-        project: getMockProjectById(entry.projectId),
-      }))
       .sort((left, right) => right.date.localeCompare(left.date))
   }, [entries, projectFilter, searchValue, fromDate, toDate])
 
   const filteredTotals = useMemo(() => {
     const totalMinutes = filteredEntries.reduce((sum, entry) => sum + entry.durationMinutes, 0)
-    const uniqueProjects = new Set(filteredEntries.map((entry) => entry.projectId)).size
+    const uniqueProjects = new Set(filteredEntries.map((entry) => entry.project_id)).size
 
     return {
       totalEntries: filteredEntries.length,
@@ -115,44 +129,41 @@ function TimeEntriesPage() {
     setFormState({ mode: null, entry: null })
   }
 
-  function handleSaveEntry(values) {
-    const nextTimestamp = '2026-04-17T12:00:00'
+  async function handleSaveEntry(values) {
+    const payload = {
+      project_id: values.projectId,
+      date: values.date,
+      hours: values.durationMinutes,
+      description: values.description,
+    }
 
     if (formState.mode === 'edit' && formState.entry) {
-      setEntries((current) =>
-        current.map((entry) =>
-          entry.id === formState.entry.id
-            ? {
-                ...entry,
-                projectId: values.projectId,
-                date: values.date,
-                durationMinutes: values.durationMinutes,
-                description: values.description,
-                focus: buildFocusLabel(values.description),
-                updatedAt: nextTimestamp,
-              }
-            : entry,
-        ),
-      )
+      const updated = await updateTimeEntry(formState.entry.id, payload)
+      if (updated) {
+        const projectsById = Object.fromEntries(projects.map((p) => [p.id, p]))
+        setEntries((current) =>
+          current.map((entry) =>
+            entry.id === formState.entry.id ? normalizeEntry(updated, projectsById) : entry,
+          ),
+        )
+      }
       closeFormModal()
       return
     }
 
-    const newEntry = {
-      id: `entry-${Date.now()}`,
-      projectId: values.projectId,
-      date: values.date,
-      durationMinutes: values.durationMinutes,
-      description: values.description,
-      loggedBy: 'Alex Johnson',
-      createdAt: nextTimestamp,
-      updatedAt: nextTimestamp,
-      focus: buildFocusLabel(values.description),
-      tags: [],
+    const created = await createTimeEntry(payload)
+    if (created) {
+      const projectsById = Object.fromEntries(projects.map((p) => [p.id, p]))
+      setEntries((current) => [normalizeEntry(created, projectsById), ...current])
     }
-
-    setEntries((current) => [newEntry, ...current])
     closeFormModal()
+  }
+
+  async function handleDeleteEntry() {
+    if (!entryToDelete) return
+    await deleteTimeEntry(entryToDelete.id)
+    setEntries((current) => current.filter((entry) => entry.id !== entryToDelete.id))
+    setEntryToDelete(null)
   }
 
   return (
@@ -173,7 +184,7 @@ function TimeEntriesPage() {
                 type="search"
                 value={searchValue}
                 onChange={(event) => setSearchValue(event.target.value)}
-                placeholder="Search by description, focus, or project"
+                placeholder="Search by description or project"
               />
             </label>
           </div>
@@ -186,7 +197,7 @@ function TimeEntriesPage() {
               onChange={(event) => setProjectFilter(event.target.value)}
             >
               <option value="all">All projects</option>
-              {MOCK_PROJECTS.map((project) => (
+              {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
@@ -244,7 +255,11 @@ function TimeEntriesPage() {
           </div>
         </div>
 
-        {filteredEntries.length ? (
+        {loading ? (
+          <div className="entries-empty-state">
+            <p className="muted">Loading entries…</p>
+          </div>
+        ) : filteredEntries.length ? (
           <div className="entries-table-wrap">
             <table className="entries-table">
               <thead>
@@ -266,11 +281,11 @@ function TimeEntriesPage() {
                     <td>{formatDate(entry.date)}</td>
                     <td>
                       <div className="entry-project-cell">
-                        <span className={`entry-project-avatar ${entry.project?.accent || 'blue'}`} aria-hidden="true">
-                          {getProjectInitials(entry.project?.name || 'Project')}
+                        <span className="entry-project-avatar blue" aria-hidden="true">
+                          {getProjectInitials(entry.project?.name || 'P')}
                         </span>
                         <div>
-                          <strong>{entry.project?.name}</strong>
+                          <strong>{entry.project?.name ?? 'Unknown project'}</strong>
                           <span className={`status-badge ${entry.project?.visibility?.toLowerCase() || 'public'}`}>
                             {entry.project?.visibility === 'PRIVATE' ? 'Private' : 'Public'}
                           </span>
@@ -288,7 +303,7 @@ function TimeEntriesPage() {
                         <button
                           type="button"
                           className="icon-action-btn edit"
-                          aria-label={`Edit ${entry.project?.name} entry on ${formatDate(entry.date)}`}
+                          aria-label={`Edit entry on ${formatDate(entry.date)}`}
                           title="Edit entry"
                           onClick={(event) => {
                             event.stopPropagation()
@@ -303,7 +318,7 @@ function TimeEntriesPage() {
                         <button
                           type="button"
                           className="icon-action-btn delete"
-                          aria-label={`Delete ${entry.project?.name} entry on ${formatDate(entry.date)}`}
+                          aria-label={`Delete entry on ${formatDate(entry.date)}`}
                           title="Delete entry"
                           onClick={(event) => {
                             event.stopPropagation()
@@ -333,8 +348,8 @@ function TimeEntriesPage() {
         key={`${formState.mode || 'closed'}-${formState.entry?.id || 'new'}`}
         isOpen={Boolean(formState.mode)}
         mode={formState.mode}
-        entry={formState.entry}
-        projects={MOCK_PROJECTS}
+        entry={formState.entry ? { ...formState.entry, projectId: formState.entry.project_id } : null}
+        projects={projects}
         onClose={closeFormModal}
         onSave={handleSaveEntry}
       />
@@ -343,10 +358,7 @@ function TimeEntriesPage() {
         isOpen={Boolean(entryToDelete)}
         description={entryToDelete?.description}
         onCancel={() => setEntryToDelete(null)}
-        onConfirm={() => {
-          setEntries((current) => current.filter((entry) => entry.id !== entryToDelete.id))
-          setEntryToDelete(null)
-        }}
+        onConfirm={handleDeleteEntry}
       />
     </section>
   )

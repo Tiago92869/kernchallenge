@@ -1,0 +1,79 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\tiago\Desktop\kern\kernchallenge\Backend
+configfile: pyproject.toml
+plugins: cov-7.1.0
+collected 249 items / 2 errors
+
+=================================== ERRORS ====================================
+______________________ ERROR collecting test_output.txt _______________________
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_abc.py:633: in read_text
+    return f.read()
+           ^^^^^^^^
+<frozen codecs>:325: in decode
+    ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+______________________ ERROR collecting test_results.txt ______________________
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_abc.py:633: in read_text
+    return f.read()
+           ^^^^^^^^
+<frozen codecs>:325: in decode
+    ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+=========================== short test summary info ===========================
+ERROR test_output.txt - UnicodeDecodeError: 'utf-8' codec can't decode byte 0...
+ERROR test_results.txt - UnicodeDecodeError: 'utf-8' codec can't decode byte ...
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!
+============================== 2 errors in 0.39s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\tiago\Desktop\kern\kernchallenge\Backend
+configfile: pyproject.toml
+plugins: cov-7.1.0
+collected 249 items / 2 errors
+
+=================================== ERRORS ====================================
+______________________ ERROR collecting test_output.txt _______________________
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_abc.py:633: in read_text
+    return f.read()
+           ^^^^^^^^
+<frozen codecs>:325: in decode
+    ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+______________________ ERROR collecting test_results.txt ______________________
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\pathlib\_abc.py:633: in read_text
+    return f.read()
+           ^^^^^^^^
+<frozen codecs>:325: in decode
+    ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+=========================== short test summary info ===========================
+ERROR test_output.txt - UnicodeDecodeError: 'utf-8' codec can't decode byte 0...
+ERROR test_results.txt - UnicodeDecodeError: 'utf-8' codec can't decode byte ...
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!
+============================== 2 errors in 0.41s ==============================
+
+[95m[1m============================================================[0m
+[95m[1m           STEP 1: RUNNING TESTS & COVERAGE CHECK           [0m
+[95m[1m============================================================[0m
+
+[94m[>] Executing pytest with 95% coverage requirement...[0m
+
+[91m[X] Tests failed or coverage below 95%![0m
+
+[93m[!] Coverage details:[0m
+
+[91m[X] [X] PRE-COMMIT CHECK ABORTED[0m
+[91m[X]     Please fix test failures and/or increase coverage to 95%[0m

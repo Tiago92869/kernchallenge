@@ -291,8 +291,12 @@ def test_list_projects_returns_public_and_owned_projects(
         project for project in data if project["name"] == "Public Team Project"
     )
     assert public_project_data["is_owner"] is False
-    assert public_project_data["number_of_members"] == 1
-    assert public_project_data["members"][0]["email"] == "member-user@test.com"
+    assert public_project_data["is_member"] is False
+    assert public_project_data["user_role"] == "VIEWER"
+    assert public_project_data["number_of_members"] == 2
+    public_member_emails = {member["email"] for member in public_project_data["members"]}
+    assert "member-user@test.com" in public_member_emails
+    assert another_user.email in public_member_emails
 
 
 def test_list_projects_filters_by_search_and_my_projects(client, user_factory, project_factory):
@@ -320,6 +324,78 @@ def test_list_projects_filters_by_search_and_my_projects(client, user_factory, p
 
 def test_list_projects_returns_401_without_token(client):
     response = client.get("/projects")
+
+    assert response.status_code == 401
+
+
+def test_get_project_details_returns_200_for_owner(
+    client, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-project-detail-owner@test.com")
+    member = user_factory(email="route-project-detail-member@test.com")
+    project = project_factory(owner=owner, name="Detail Project", visibility="PRIVATE")
+    project_member_factory(project=project, user=member)
+    access_token = _login_and_get_access_token(client, email=owner.email)
+
+    response = client.get(
+        f"/projects/{project.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["id"] == str(project.id)
+    assert body["data"]["name"] == "Detail Project"
+    assert body["data"]["is_owner"] is True
+    assert body["data"]["user_role"] == "OWNER"
+    assert body["data"]["number_of_members"] >= 1
+
+
+def test_get_project_details_returns_200_for_member(
+    client, user_factory, project_factory, project_member_factory
+):
+    owner = user_factory(email="route-project-detail-owner-member-case@test.com")
+    member = user_factory(email="route-project-detail-member-case@test.com")
+    project = project_factory(owner=owner, visibility="PRIVATE")
+    project_member_factory(project=project, user=member)
+    access_token = _login_and_get_access_token(client, email=member.email)
+
+    response = client.get(
+        f"/projects/{project.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["is_owner"] is False
+    assert body["data"]["user_role"] == "MEMBER"
+
+
+def test_get_project_details_returns_403_for_unauthorized_private_user(
+    client, user_factory, project_factory
+):
+    owner = user_factory(email="route-project-detail-private-owner@test.com")
+    outsider = user_factory(email="route-project-detail-private-outsider@test.com")
+    project = project_factory(owner=owner, visibility="PRIVATE")
+    access_token = _login_and_get_access_token(client, email=outsider.email)
+
+    response = client.get(
+        f"/projects/{project.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error"]["message"] == "User does not have access to this project"
+
+
+def test_get_project_details_returns_401_without_token(client, project_factory):
+    project = project_factory()
+
+    response = client.get(f"/projects/{project.id}")
 
     assert response.status_code == 401
 

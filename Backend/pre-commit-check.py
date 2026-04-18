@@ -10,6 +10,24 @@ import os
 from pathlib import Path
 
 
+def get_python_command() -> str:
+    """Return the Python interpreter command used for subprocess checks.
+
+    Prefer the project's virtualenv interpreter when available so the script
+    works even if launched with a global Python executable.
+    """
+    backend_dir = Path(__file__).resolve().parent
+    windows_venv = backend_dir / ".venv" / "Scripts" / "python.exe"
+    unix_venv = backend_dir / ".venv" / "bin" / "python"
+
+    if windows_venv.exists():
+        return f'"{windows_venv.resolve()}"'
+    if unix_venv.exists():
+        return f'"{unix_venv.resolve()}"'
+
+    return f'"{sys.executable}"'
+
+
 class Colors:
     """Terminal color codes"""
 
@@ -74,8 +92,9 @@ def step_1_tests():
     print_step("Executing pytest with 95% coverage requirement...")
     print()
 
+    python_cmd = get_python_command()
     exit_code, _ = run_command(
-        "python -m pytest --cov=app --cov-fail-under=95", capture=False
+        f"{python_cmd} -m pytest tests --cov=app --cov-fail-under=95", capture=False
     )
 
     if exit_code == 0:
@@ -85,7 +104,7 @@ def step_1_tests():
         print_fail("Tests failed or coverage below 95%!")
         print()
         print_warn("Coverage details:")
-        run_command("python -m pytest --cov=app --cov-report=term-missing")
+        run_command(f"{python_cmd} -m pytest tests --cov=app --cov-report=term-missing")
         print()
         print_fail("[X] PRE-COMMIT CHECK ABORTED")
         print_fail("    Please fix test failures and/or increase coverage to 95%")
@@ -97,6 +116,7 @@ def step_2_ruff_lint():
     print_header("STEP 2: RUNNING RUFF LINT CHECKS")
 
     max_attempts = 3
+    python_cmd = get_python_command()
     
     # Move to repo root (like GitHub Actions does)
     repo_root = Path("..").resolve()
@@ -112,7 +132,7 @@ def step_2_ruff_lint():
         print()
 
         exit_code, output = run_command(
-            "python -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml", capture=True
+            f"{python_cmd} -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml", capture=True
         )
 
         if exit_code == 0:
@@ -131,10 +151,14 @@ def step_2_ruff_lint():
                 print()
                 print(output)
 
-            print_step("Running: python -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml --fix")
+            print_step(
+                "Running: python -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml --fix"
+            )
             print()
 
-            run_command("python -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml --fix")
+            run_command(
+                f"{python_cmd} -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml --fix"
+            )
 
             print()
 
@@ -152,6 +176,7 @@ def step_3_ruff_format():
     print_header("STEP 3: RUNNING RUFF FORMAT CHECKS")
 
     max_attempts = 3
+    python_cmd = get_python_command()
     
     # Move to repo root (like GitHub Actions does)
     repo_root = Path("..").resolve()
@@ -167,7 +192,7 @@ def step_3_ruff_format():
         print()
 
         exit_code, output = run_command(
-            "python -m ruff format Backend/app Backend/tests --config Backend/pyproject.toml --check",
+            f"{python_cmd} -m ruff format Backend/app Backend/tests --config Backend/pyproject.toml --check",
             capture=True,
         )
 
@@ -189,7 +214,9 @@ def step_3_ruff_format():
             print_step("Running: python -m ruff format Backend/app Backend/tests --config Backend/pyproject.toml")
             print()
 
-            run_command("python -m ruff format Backend/app Backend/tests --config Backend/pyproject.toml")
+            run_command(
+                f"{python_cmd} -m ruff format Backend/app Backend/tests --config Backend/pyproject.toml"
+            )
 
             print()
 
@@ -220,6 +247,7 @@ def main():
         sys.exit(1)
 
     # Run all checks
+    python_cmd = get_python_command()
     tests_pass = step_1_tests()
     if not tests_pass:
         sys.exit(1)
@@ -242,11 +270,11 @@ def main():
     os.chdir(repo_root)
     
     exit_code_lint, _ = run_command(
-        "python -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml",
+        f"{python_cmd} -m ruff check Backend/app Backend/tests --config Backend/pyproject.toml",
         capture=True
     )
     exit_code_format, _ = run_command(
-        "python -m ruff format Backend/app Backend/tests --config Backend/pyproject.toml --check",
+        f"{python_cmd} -m ruff format Backend/app Backend/tests --config Backend/pyproject.toml --check",
         capture=True
     )
     
