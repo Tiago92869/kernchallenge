@@ -141,11 +141,13 @@ class ProjectService:
         user_id: UUID,
         search: str | None = None,
         my_projects: bool = False,
+        participating_only: bool = False,
     ):
         projects = ProjectRepository.list_available_projects(
             user_id=user_id,
             search=search,
             my_projects=my_projects,
+            participating_only=participating_only,
         )
 
         serialized_projects = []
@@ -210,10 +212,17 @@ class ProjectService:
 
         is_owner = project.owner_id == user_id
         is_member = ProjectMemberRepository.get_by_id(user_id, project_id) is not None
-        is_public = project.visibility == ProjectVisibility.PUBLIC
+        visibility_value = (
+            project.visibility.value
+            if isinstance(project.visibility, ProjectVisibility)
+            else project.visibility
+        )
+        is_public = visibility_value == ProjectVisibility.PUBLIC.value
 
         if not is_owner and not is_member and not is_public:
             raise ForbiddenError(message="User does not have access to this project")
+
+        user_role = "OWNER" if is_owner else "MEMBER" if is_member else "VIEWER"
 
         members_by_id = {}
         owner = project.owner
@@ -248,7 +257,7 @@ class ProjectService:
             is_archived=project.is_archived,
             owner_id=project.owner_id,
             is_owner=is_owner,
-            user_role="OWNER" if is_owner else "MEMBER",
+            user_role=user_role,
             number_of_members=len(members_by_id),
             created_at=project.created_at,
             last_entry_at=project.last_entry_added_at,

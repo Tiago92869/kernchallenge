@@ -4,8 +4,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 import TimeEntryFormModal from '../components/TimeEntryFormModal'
 import { useAuth } from '../hooks/useAuth'
+import { getProjectDetails } from '../services/projectService'
+import { deleteTimeEntry, getTimeEntryById } from '../services/timeEntryService'
 import { MOCK_PROJECTS } from '../mocks/timeEntries'
-import { getMockTimeEntryById } from '../mocks/timeEntries'
 
 function formatLongDate(dateString) {
   return new Date(dateString).toLocaleDateString(undefined, {
@@ -76,15 +77,97 @@ function TimeEntryDetailPage() {
   const { token } = useAuth()
   const currentUserId = useMemo(() => parseUserIdFromToken(token), [token])
 
-  const [entry, setEntry] = useState(() => location.state?.entry || getMockTimeEntryById(id))
+  const [entry, setEntry] = useState(() => location.state?.entry || null)
+  const [loading, setLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   useEffect(() => {
-    setEntry(location.state?.entry || getMockTimeEntryById(id))
+    let isActive = true
+
+    const loadEntry = async () => {
+      setLoading(true)
+
+      try {
+        const apiEntry = await getTimeEntryById(id)
+        if (!isActive || !apiEntry) return
+
+        let project = null
+        try {
+          const projectDetails = await getProjectDetails(apiEntry.project_id)
+          if (projectDetails) {
+            project = {
+              id: projectDetails.id,
+              name: projectDetails.name,
+              visibility: projectDetails.visibility,
+              accent: 'blue',
+            }
+          }
+        } catch {
+          project = null
+        }
+
+        setEntry({
+          id: apiEntry.id,
+          projectId: apiEntry.project_id,
+          userId: apiEntry.user_id,
+          date: apiEntry.date,
+          durationMinutes: apiEntry.hours,
+          description: apiEntry.description,
+          focus: buildFocusLabel(apiEntry.description),
+          loggedBy: '-',
+          createdAt: null,
+          updatedAt: null,
+          project: project || {
+            id: apiEntry.project_id,
+            name: 'Project',
+            visibility: 'PUBLIC',
+            accent: 'blue',
+          },
+        })
+      } catch {
+        if (isActive) {
+          setEntry(null)
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadEntry()
+
+    return () => {
+      isActive = false
+    }
   }, [id, location.state])
 
   const isEntryOwner = !entry?.userId || !currentUserId || entry.userId === currentUserId
+
+  async function handleDeleteEntry() {
+    if (!entry?.id || isDeleting) return
+
+    setIsDeleting(true)
+    try {
+      await deleteTimeEntry(entry.id)
+      navigate('/time-entries')
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteOpen(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <section className="dashboard-stack">
+        <div className="dashboard-card">
+          <p className="muted">Loading time entry...</p>
+        </div>
+      </section>
+    )
+  }
 
   if (!entry) {
     return (
@@ -134,14 +217,14 @@ function TimeEntryDetailPage() {
       <section className="entry-detail-metrics">
         <article className="dashboard-card entry-metric-card">
           <p className="entries-summary-label">Duration</p>
-          <strong>{formatDuration(entry.durationMinutes)}</strong>
-          <span className="muted">logged for this work session</span>
+          <strong>{formatDuration(entry.durationMinutes)}</strong>Are you sure that you want to delete this entry?
+
+
         </article>
 
         <article className="dashboard-card entry-metric-card">
           <p className="entries-summary-label">Work Date</p>
           <strong>{formatLongDate(entry.date)}</strong>
-          <span className="muted">ordered from the mocked entries list</span>
         </article>
       </section>
 
@@ -210,7 +293,8 @@ function TimeEntryDetailPage() {
             isOpen={isDeleteOpen}
             description={entry.description}
             onCancel={() => setIsDeleteOpen(false)}
-            onConfirm={() => navigate('/time-entries')}
+            onConfirm={handleDeleteEntry}
+            confirmText={isDeleting ? 'Deleting...' : 'Yes'}
           />
         </>
       ) : null}

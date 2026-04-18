@@ -1121,7 +1121,8 @@ select {
 }
 
 .recent-link,
-.project-link {
+.project-link,
+.notification-link {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1136,7 +1137,8 @@ select {
 }
 
 .recent-link:hover,
-.project-link:hover {
+.project-link:hover,
+.notification-link:hover {
   background: #f0f5ff;
 }
 
@@ -1193,6 +1195,17 @@ select {
 .profile-field p {
   margin: 0;
   color: #253757;
+}
+
+.profile-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-pw-btn {
+  font-size: 0.85rem;
+  padding: 6px 12px;
 }
 
 .profile-edit-btn {

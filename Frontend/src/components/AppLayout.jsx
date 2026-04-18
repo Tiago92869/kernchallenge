@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
+import { apiClient } from '../services/apiClient'
 import { getNotifications } from '../services/notificationService'
-import logoImage from '../../../Documentation/images/logo.png'
+import logoImage from '../../../Documentation/images/logo_new.png'
 
 function timeAgo(dateString) {
   const created = new Date(dateString).getTime()
@@ -23,6 +24,7 @@ const ROUTE_TITLES = [
   { pattern: /^\/projects\/[^/]+$/, title: 'Project Details', back: true },
   { pattern: /^\/projects/, title: 'Projects' },
   { pattern: /^\/profile/, title: 'Profile' },
+  { pattern: /^\/notifications\/[^/]+/, title: 'Notification Details', back: true },
   { pattern: /^\/notifications/, title: 'Notifications' },
   { pattern: /^\/dashboard/, title: 'Dashboard' },
 ]
@@ -37,15 +39,72 @@ function usePageMeta() {
   return { title: 'Dashboard', back: false }
 }
 
+function parseUserIdFromToken(token) {
+  if (!token) return null
+
+  const parts = token.split('.')
+  if (parts.length < 2) return null
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(base64))
+    return payload?.sub || null
+  } catch {
+    return null
+  }
+}
+
+function getInitials(firstName, lastName) {
+  return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U'
+}
+
 function AppLayout() {
-  const { logout } = useAuth()
+  const { logout, token } = useAuth()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [currentUser, setCurrentUser] = useState(null)
 
   useEffect(() => {
     getNotifications().then(setNotifications).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    let isCancelled = false
+    const userId = parseUserIdFromToken(token)
+
+    if (!userId) {
+      setCurrentUser(null)
+      return () => {
+        isCancelled = true
+      }
+    }
+
+    apiClient
+      .get(`/users/${userId}`)
+      .then((response) => {
+        if (isCancelled) return
+
+        const user = response?.data?.data
+        setCurrentUser(
+          user
+            ? {
+                firstName: user.firstname || '',
+                lastName: user.lastname || '',
+              }
+            : null,
+        )
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setCurrentUser(null)
+        }
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [token])
 
   const handleLogout = async () => {
     await logout()
@@ -53,6 +112,8 @@ function AppLayout() {
   }
   const { title, back } = usePageMeta()
   const unreadCount = notifications.filter((item) => !item.is_read).length
+  const profileName = [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ') || 'User'
+  const profileInitials = getInitials(currentUser?.firstName, currentUser?.lastName)
 
   return (
     <div className="workspace-shell">
@@ -126,8 +187,8 @@ function AppLayout() {
               )}
             </div>
             <Link to="/profile" className="profile-btn" aria-label="Open profile">
-              <span className="profile-avatar" aria-hidden="true">A</span>
-              <span>Alex</span>
+              <span className="profile-avatar" aria-hidden="true">{profileInitials}</span>
+              <span>{profileName}</span>
               <span className="profile-caret" aria-hidden="true">▾</span>
             </Link>
           </div>

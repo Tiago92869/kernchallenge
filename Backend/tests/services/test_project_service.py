@@ -232,7 +232,10 @@ def test_change_archive_status_creates_notifications_for_active_members_only(
     assert notifications[0].recipient_user_id == active_member.id
     assert notifications[0].actor_user_id == owner.id
     assert notifications[0].notification_type == NotificationType.ARCHIVED
-    assert notifications[0].message == f'"{owner.first_name} {owner.last_name}" archived project "{project.name}"'
+    assert (
+        notifications[0].message
+        == f'"{owner.first_name} {owner.last_name}" archived project "{project.name}"'
+    )
 
 
 def test_list_available_projects_returns_public_and_owned(
@@ -304,6 +307,37 @@ def test_list_available_projects_filters_by_search_and_my_projects(user_factory,
     assert my_filtered_projects[0].is_owner is True
 
 
+def test_list_available_projects_participating_only_returns_owner_or_member(
+    user_factory, project_factory, project_member_factory
+):
+    current_user = user_factory(email="owner-or-member@test.com")
+    other_user = user_factory(email="other-owner@test.com")
+
+    owned_project = project_factory(owner=current_user, name="Owned Project", visibility="PRIVATE")
+    member_private_project = project_factory(
+        owner=other_user,
+        name="Member Private",
+        visibility="PRIVATE",
+    )
+    public_viewer_project = project_factory(
+        owner=other_user,
+        name="Public Viewer",
+        visibility="PUBLIC",
+    )
+
+    project_member_factory(project=member_private_project, user=current_user)
+
+    projects = ProjectService.list_available_projects(
+        user_id=current_user.id,
+        participating_only=True,
+    )
+
+    project_names = [project.name for project in projects]
+    assert owned_project.name in project_names
+    assert member_private_project.name in project_names
+    assert public_viewer_project.name not in project_names
+
+
 def test_get_dashboard_project_activity_splits_owned_and_member_projects(
     user_factory, project_factory, project_member_factory
 ):
@@ -344,3 +378,15 @@ def test_get_dashboard_project_activity_keeps_archived_projects_visible(
     member_names = [project.name for project in payload["my_projects"]]
     assert "Owned Archived" in owner_names
     assert "Member Archived" in member_names
+
+
+def test_get_project_details_allows_outsider_for_public_project(user_factory, project_factory):
+    owner = user_factory(email="service-project-detail-public-owner@test.com")
+    outsider = user_factory(email="service-project-detail-public-outsider@test.com")
+    project = project_factory(owner=owner, visibility="PUBLIC")
+
+    result = ProjectService.get_project_details(project_id=project.id, user_id=outsider.id)
+
+    assert result.id == project.id
+    assert result.is_owner is False
+    assert result.user_role == "VIEWER"

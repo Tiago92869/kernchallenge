@@ -68,28 +68,37 @@ function getUserRoleLabel(project) {
   return 'No role'
 }
 
-function normalizeProject(apiProject) {
+function normalizeProject(apiProject, fallback = {}) {
+  const normalizedVisibility = apiProject.visibility || fallback.visibility || 'PRIVATE'
+  const normalizedIsOwner = Boolean(apiProject.is_owner ?? fallback.is_owner)
+  const normalizedIsMember = Boolean(apiProject.is_member ?? fallback.is_member)
+  const normalizedRole = apiProject.user_role || fallback.user_role || null
+  const normalizedMembers = (apiProject.members || []).map((m) => ({
+    id: m.id,
+    firstName: m.first_name,
+    lastName: m.last_name,
+    email: m.email,
+  }))
+  const normalizedMembersCount =
+    apiProject.number_of_members ?? fallback.number_of_members ?? normalizedMembers.length
+
   return {
     id: apiProject.id,
     name: apiProject.name,
     description: apiProject.description || '',
-    visibility: apiProject.visibility,
+    visibility: normalizedVisibility,
     is_archived: apiProject.is_archived,
-    is_owner: apiProject.is_owner,
-    is_member: Boolean(apiProject.is_member),
-    user_role: apiProject.user_role || null,
-    isMine: apiProject.is_owner,
+    is_owner: normalizedIsOwner,
+    is_member: normalizedIsMember,
+    user_role: normalizedRole,
+    isMine: normalizedIsOwner,
     canAccess: true,
-    created_at: apiProject.created_at,
-    createdAt: apiProject.created_at,
+    created_at: apiProject.created_at || new Date().toISOString(),
+    createdAt: apiProject.created_at || new Date().toISOString(),
     last_entry_at: apiProject.last_entry_at,
     lastEntryAt: apiProject.last_entry_at,
-    members: (apiProject.members || []).map((m) => ({
-      id: m.id,
-      firstName: m.first_name,
-      lastName: m.last_name,
-      email: m.email,
-    })),
+    number_of_members: normalizedMembersCount,
+    members: normalizedMembers,
   }
 }
 
@@ -142,7 +151,16 @@ function ProjectsPage() {
     })
 
     if (created) {
-      setProjects((current) => [normalizeProject(created), ...current])
+      setProjects((current) => [
+        normalizeProject(created, {
+          visibility: values.visibility,
+          is_owner: true,
+          is_member: false,
+          user_role: 'OWNER',
+          number_of_members: 1,
+        }),
+        ...current,
+      ])
     }
     setIsCreateOpen(false)
   }
@@ -234,7 +252,7 @@ function ProjectsPage() {
                           <div className="project-name-cell">
                             <strong>{project.name}</strong>
                             <p className="muted">
-                              {project.members.length} members, Alex
+                              {(project.number_of_members ?? project.members.length)} members
                             </p>
                           </div>
                         </td>

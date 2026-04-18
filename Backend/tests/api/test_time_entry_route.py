@@ -461,6 +461,28 @@ def test_get_time_entries_by_project_denies_non_member(client, user_factory, pro
     assert "access" in body["error"]["message"].lower()
 
 
+def test_get_time_entries_by_project_allows_non_member_for_public_project(
+    client, time_entry_factory, user_factory, project_factory
+):
+    owner = user_factory(email="route-project-owner-public-view@test.com")
+    non_member = user_factory(email="route-project-non-member-public-view@test.com")
+    project = project_factory(owner=owner, visibility="PUBLIC")
+
+    time_entry_factory(user=owner, project=project, description="Public project entry")
+    access_token = _login_and_get_access_token(client, email=non_member.email)
+
+    response = client.get(
+        f"/time-entries/project/{project.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["description"] == "Public project entry"
+
+
 def test_get_time_entries_by_project_with_date_filter(
     client, time_entry_factory, user_factory, project_factory, project_member_factory
 ):

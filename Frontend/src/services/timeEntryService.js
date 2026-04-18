@@ -16,8 +16,13 @@ export async function getProjectTimeEntries(projectId, params = {}) {
   return Array.isArray(items) ? items : []
 }
 
+export async function getTimeEntryById(id) {
+  const response = await apiClient.get(`/time-entries/${id}`)
+  return unwrapData(response)
+}
+
 export async function getMyProjects() {
-  const response = await apiClient.get('/projects')
+  const response = await apiClient.get('/projects', { params: { participating_only: true } })
   const items = unwrapData(response)
   return Array.isArray(items) ? items : []
 }
