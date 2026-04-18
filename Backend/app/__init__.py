@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 from flasgger import Swagger
-from flask import Flask
+from flask import Flask, request
 
 from app.api.auth_routes import auth_bp
 from app.api.error_handlers import register_error_handlers
@@ -27,6 +27,22 @@ def create_app(config_override=None):
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
     jwt.init_app(flask_app)
+
+    @flask_app.after_request
+    def add_cors_headers(response):
+        request_origin = request.headers.get("Origin")
+        allowed_origins = set(flask_app.config.get("CORS_ALLOWED_ORIGINS", []))
+
+        if request_origin and request_origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = request_origin
+            response.headers["Vary"] = "Origin"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            response.headers["Access-Control-Allow-Methods"] = (
+                "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            )
+
+        return response
+
     Swagger(
         flask_app,
         config={

@@ -41,6 +41,11 @@ function AppLayout() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
   const { title, back } = usePageMeta()
   const unreadCount = MOCK_NOTIFICATIONS.filter((item) => !item.isRead).length
 
@@ -66,7 +71,7 @@ function AppLayout() {
           </NavLink>
         </nav>
 
-        <button className="menu-item logout-item" onClick={logout} type="button">
+        <button className="menu-item logout-item" onClick={handleLogout} type="button">
           <span className="menu-icon" aria-hidden="true">⏻</span>
           <span>Logout</span>
         </button>

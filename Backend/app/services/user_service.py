@@ -1,4 +1,5 @@
 import secrets
+import smtplib
 import string
 from uuid import UUID
 
@@ -195,10 +196,18 @@ class UserService:
             raise NotFoundError(message="User not found")
 
         temporary_password = UserService.generate_temporary_password()
+        previous_password_hash = user.password_hash
         user.set_password(temporary_password)
-        UserRepository.save(user)
 
-        EmailService.send_password_reset_email(
-            to_email=user.email,
-            temporary_password=temporary_password,
-        )
+        try:
+            EmailService.send_password_reset_email(
+                to_email=user.email,
+                temporary_password=temporary_password,
+            )
+        except (smtplib.SMTPException, OSError, TimeoutError) as exc:
+            user.password_hash = previous_password_hash
+            raise ValidationError(
+                message="Unable to send reset email right now. Please try again later."
+            ) from exc
+
+        UserRepository.save(user)

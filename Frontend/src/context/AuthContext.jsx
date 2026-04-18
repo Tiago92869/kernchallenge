@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { loginRequest, logoutRequest } from '../services/authService'
+import { clearAuthTokens, getAccessToken, persistAuthTokens } from '../services/authStorage'
 import { AuthContext } from './authContext'
 
-const TOKEN_KEY = 'auth_token'
-
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY))
+  const [token, setToken] = useState(() => getAccessToken())
   const [isLoading, setIsLoading] = useState(false)
 
   const isAuthenticated = Boolean(token)
 
-  const login = useCallback(async ({ email, password }) => {
+  const login = useCallback(async ({ email, password, rememberMe = true }) => {
     setIsLoading(true)
     try {
       const payload = await loginRequest({ email, password })
@@ -19,7 +18,14 @@ export function AuthProvider({ children }) {
       if (!newToken) {
         throw new Error('Token missing in login response')
       }
-      localStorage.setItem(TOKEN_KEY, newToken)
+
+      persistAuthTokens(
+        {
+          authToken: newToken,
+          refreshToken: payload.refresh_token,
+        },
+        { rememberMe },
+      )
       setToken(newToken)
     } finally {
       setIsLoading(false)
@@ -34,19 +40,31 @@ export function AuthProvider({ children }) {
     } catch {
       // keep logout robust even when token is already invalid
     } finally {
-      localStorage.removeItem(TOKEN_KEY)
+      clearAuthTokens()
       setToken(null)
     }
   }, [token])
 
   useEffect(() => {
     const onUnauthorized = () => {
-      localStorage.removeItem(TOKEN_KEY)
+      clearAuthTokens()
       setToken(null)
     }
 
+    const onTokenRefreshed = (event) => {
+      const refreshedToken = event?.detail?.token
+      if (refreshedToken) {
+        setToken(refreshedToken)
+      }
+    }
+
     window.addEventListener('auth:unauthorized', onUnauthorized)
-    return () => window.removeEventListener('auth:unauthorized', onUnauthorized)
+    window.addEventListener('auth:token-refreshed', onTokenRefreshed)
+
+    return () => {
+      window.removeEventListener('auth:unauthorized', onUnauthorized)
+      window.removeEventListener('auth:token-refreshed', onTokenRefreshed)
+    }
   }, [])
 
   const value = useMemo(
