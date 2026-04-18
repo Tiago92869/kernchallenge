@@ -11,17 +11,17 @@ function toDurationMinutes(timeValue) {
   return Number(hours) * 60 + Number(minutes)
 }
 
-function buildInitialValues(entry, projects) {
+function buildInitialValues(entry, projects, lockedProjectId) {
   return {
-    projectId: entry?.projectId || projects[0]?.id || '',
+    projectId: lockedProjectId || entry?.projectId || projects[0]?.id || '',
     date: entry?.date || '2026-04-17',
     timeValue: toTimeValue(entry?.durationMinutes || 60),
     description: entry?.description || '',
   }
 }
 
-function TimeEntryFormModal({ isOpen, mode, entry, projects, onClose, onSave }) {
-  const [values, setValues] = useState(() => buildInitialValues(entry, projects))
+function TimeEntryFormModal({ isOpen, mode, entry, projects, onClose, onSave, lockedProjectId = null }) {
+  const [values, setValues] = useState(() => buildInitialValues(entry, projects, lockedProjectId))
 
   if (!isOpen) {
     return null
@@ -55,17 +55,27 @@ function TimeEntryFormModal({ isOpen, mode, entry, projects, onClose, onSave }) 
         >
           <label className="field" htmlFor="time-entry-project">
             Project
-            <select
-              id="time-entry-project"
-              value={values.projectId}
-              onChange={(event) => setValues((current) => ({ ...current, projectId: event.target.value }))}
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+            {lockedProjectId ? (
+              <input
+                id="time-entry-project"
+                type="text"
+                value={projects.find((project) => project.id === lockedProjectId)?.name || ''}
+                disabled
+                readOnly
+              />
+            ) : (
+              <select
+                id="time-entry-project"
+                value={values.projectId}
+                onChange={(event) => setValues((current) => ({ ...current, projectId: event.target.value }))}
+              >
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
 
           <label className="field" htmlFor="time-entry-date">

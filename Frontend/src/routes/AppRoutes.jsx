@@ -11,6 +11,7 @@ import LoginPage from '../pages/LoginPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import NotificationsPage from '../pages/NotificationsPage'
 import ProjectDetailPage from '../pages/ProjectDetailPage'
+import ProjectMembersPage from '../pages/ProjectMembersPage'
 import ProjectsPage from '../pages/ProjectsPage'
 import TimeEntriesPage from '../pages/TimeEntriesPage'
 import TimeEntryDetailPage from '../pages/TimeEntryDetailPage'
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />
+        <Route path="projects/:id/members" element={<ProjectMembersPage />} />
         <Route path="time-entries" element={<TimeEntriesPage />} />
         <Route path="time-entries/:id" element={<TimeEntryDetailPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
