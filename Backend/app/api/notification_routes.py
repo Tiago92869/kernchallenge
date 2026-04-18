@@ -92,3 +92,22 @@ def mark_notification_as_read(notification_id):
     notification = NotificationService.mark_notification_as_read(UUID(notification_id))
 
     return success_response(data=NotificationSchema.serialize_notification(notification))
+
+
+@notification_bp.patch("/read-all")
+@jwt_required()
+def mark_all_notifications_as_read():
+    """Mark all notifications as read for the authenticated user.
+    ---
+    tags:
+      - Notifications
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: All notifications marked as read
+      401:
+        description: Missing or invalid auth token
+    """
+    NotificationService.mark_all_notifications_as_read(recipient_user_id=UUID(get_jwt_identity()))
+    return success_response(message="All notifications marked as read")

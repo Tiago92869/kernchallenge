@@ -77,3 +77,11 @@ class NotificationService:
             notification = NotificationRepository.save(notification)
 
         return notification
+
+    @staticmethod
+    def mark_all_notifications_as_read(recipient_user_id: UUID) -> None:
+        NotificationService._ensure_user_exists(recipient_user_id)
+        NotificationRepository.mark_all_as_read(
+            recipient_user_id=recipient_user_id,
+            read_at=datetime.now(),
+        )

@@ -127,6 +127,12 @@ function ProjectsPage() {
 
         <div className="dashboard-card projects-list-filters-card">
           <div className="projects-list-search-row">
+            <button type="button" className="notifications-search-btn" aria-label="Search projects">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15.5 14h-.79l-.28-.27a6 6 0 1 0-.71.71l.27.28v.79L19 20.5 20.5 19zM10 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8z" />
+              </svg>
+            </button>
+
             <label className="field projects-list-search-field" htmlFor="project-search-input">
               <span className="sr-only">Search projects</span>
               <input
@@ -138,15 +144,19 @@ function ProjectsPage() {
               />
             </label>
 
-            <label className="projects-list-toggle" htmlFor="projects-mine-toggle">
-              <input
-                id="projects-mine-toggle"
-                type="checkbox"
-                checked={isMyProjectsOnly}
-                onChange={(event) => setIsMyProjectsOnly(event.target.checked)}
-              />
-              <span>My Projects</span>
-            </label>
+            <button
+              type="button"
+              className={`projects-mine-btn${isMyProjectsOnly ? ' active' : ''}`}
+              aria-pressed={isMyProjectsOnly}
+              onClick={() => setIsMyProjectsOnly((prev) => !prev)}
+            >
+              {isMyProjectsOnly && (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
+              )}
+              My Projects
+            </button>
           </div>
         </div>
 

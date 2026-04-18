@@ -1289,6 +1289,18 @@ select {
   flex: 0 1 200px;
 }
 
+.entries-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.entries-search-row .entries-search-field {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
 .entries-search-field input {
   min-width: 0;
 }
@@ -1548,29 +1560,43 @@ select {
 
 .projects-list-search-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: center;
+  align-items: end;
 }
 
 .projects-list-search-field {
   margin: 0;
 }
 
-.projects-list-toggle {
+.projects-mine-btn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  color: #2f466f;
+  gap: 6px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid #d4def0;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #476892;
   font-weight: 600;
+  font-size: 0.875rem;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.projects-list-toggle input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: #2f75df;
+.projects-mine-btn.active {
+  background: #2f75df;
+  color: #fff;
+  border-color: #2f75df;
+}
+
+.projects-mine-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex-shrink: 0;
 }
 
 .projects-list-table {
