@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
-import heroImage from '../../../Documentation/images/land_page_image.png'
-import logoImage from '../../../Documentation/images/logo_new.png'
+import heroImage from '../assets/land_page_image.png'
+import logoImage from '../assets/logo_new.png'
 
 function LandingPage() {
   return (

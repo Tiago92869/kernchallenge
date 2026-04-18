@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
 import { getApiErrorMessage } from '../services/apiError'
-import logoImage from '../../../Documentation/images/logo_new.png'
+import logoImage from '../assets/logo_new.png'
 
 function LoginPage() {
   const { login, isLoading } = useAuth()

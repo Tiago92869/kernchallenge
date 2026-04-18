@@ -8,14 +8,33 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: 0sCihxBG6snZPxWeD11c0YoVZcZjV
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - timesync_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U timesync -d timesync"]
+      test: ["CMD-SHELL", "pg_isready -U user -d timesync"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: timesync-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://user:0sCihxBG6snZPxWeD11c0YoVZcZjV@db:5432/timesync
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      FLASK_APP: app:create_app
+      FLASK_ENV: production
+    command: >
+      sh -c "flask db upgrade && flask run --host=0.0.0.0 --port=5000"
+    ports:
+      - "5000:5000"
 
   frontend:
     build:
@@ -25,33 +44,11 @@ services:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
     container_name: timesync-frontend
     restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
     ports:
       - "3000:80"
-
-  # backend:
-  #   build:
-  #     context: ./backend
-  #   container_name: timesync-backend
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   environment:
-  #     DATABASE_URL: postgresql+psycopg://timesync:timesync@db:5432/timesync
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./backend:/app
-
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #   container_name: timesync-frontend
-  #   depends_on:
-  #     - backend
-  #   ports:
-  #     - "3000:3000"
-  #   volumes:
-  #     - ./frontend:/app
 
 volumes:
   timesync_postgres_data:
