@@ -19,7 +19,8 @@ function timeAgo(dateString) {
 const ROUTE_TITLES = [
   { pattern: /^\/time-entries\/[^/]+/, title: 'Time Entry Details', back: true },
   { pattern: /^\/time-entries/, title: 'My Entries' },
-  { pattern: /^\/projects\/[^/]+/, title: 'Project Details', back: true },
+  { pattern: /^\/projects\/[^/]+\/members$/, title: 'Project Members', back: true },
+  { pattern: /^\/projects\/[^/]+$/, title: 'Project Details', back: true },
   { pattern: /^\/projects/, title: 'Projects' },
   { pattern: /^\/profile/, title: 'Profile' },
   { pattern: /^\/notifications/, title: 'Notifications' },
