@@ -1,3 +1,45 @@
+# How To Install and Run (Docker Compose)
+
+## Prerequisites
+
+- Docker Desktop installed and running
+- Docker Compose v2 (included with recent Docker Desktop versions)
+
+## Steps
+
+1. Open a terminal in the project root folder.
+2. Build and start all services (database, backend, frontend):
+
+```bash
+docker compose up --build -d
+```
+
+3. Verify that all services are running:
+
+```bash
+docker compose ps
+```
+
+4. Open the apps:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000
+- Swagger docs: http://localhost:5000/docs/
+- PostgreSQL (host): localhost:5433
+
+## Useful Commands
+
+- Stop services:
+
+```bash
+docker compose down
+```
+
+- Stop and remove services + database data (full reset):
+
+```bash
+docker compose down -v --remove-orphans
+```
+
 # KERN IT Challenges
 
 This is the KERN IT Challenges that we use in our recruitment process

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 import { getApiErrorMessage } from '../services/apiError'
 import { forgotPasswordRequest } from '../services/authService'
-import logoImage from '../../../Documentation/images/logo_new.png'
+import logoImage from '../assets/logo_new.png'
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('')

@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useAuth } from '../hooks/useAuth'
 import { apiClient } from '../services/apiClient'
 import { getNotifications } from '../services/notificationService'
-import logoImage from '../../../Documentation/images/logo_new.png'
+import logoImage from '../assets/logo_new.png'
 
 function timeAgo(dateString) {
   const created = new Date(dateString).getTime()
