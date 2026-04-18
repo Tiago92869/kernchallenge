@@ -380,6 +380,24 @@ def test_get_time_entries_by_project_denies_non_member(user_factory, project_fac
     assert exc_info.value.message == "User does not have access to this project"
 
 
+def test_get_time_entries_by_project_allows_non_member_for_public_project(
+    time_entry_factory, user_factory, project_factory
+):
+    owner = user_factory(email="project-owner-public-view@test.com")
+    non_member = user_factory(email="project-non-member-public-view@test.com")
+    project = project_factory(owner=owner, visibility="PUBLIC")
+
+    time_entry_factory(user=owner, project=project, description="Public owner entry")
+
+    results = TimeEntryService.get_time_entries_by_project_with_role_visibility(
+        project_id=project.id,
+        user_id=non_member.id,
+    )
+
+    assert len(results) == 1
+    assert results[0].description == "Public owner entry"
+
+
 def test_get_time_entries_by_project_with_date_filter(
     time_entry_factory, user_factory, project_factory, project_member_factory
 ):

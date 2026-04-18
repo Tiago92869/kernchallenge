@@ -29,8 +29,8 @@ def get_currently_active_members(project_id):
         description: Project not found or archived
     """
     project_members = ProjectMemberService.get_currently_active_members(
-      UUID(project_id),
-      actor_user_id=UUID(get_jwt_identity()),
+        UUID(project_id),
+        actor_user_id=UUID(get_jwt_identity()),
     )
 
     return success_response(
@@ -78,7 +78,7 @@ def add_member_to_project(project_id):
     ProjectMemberService.add_member_to_project(
         project_id=UUID(project_id),
         users_ids=[UUID(user_id) for user_id in data.get("users_ids", [])],
-      actor_user_id=UUID(get_jwt_identity()),
+        actor_user_id=UUID(get_jwt_identity()),
     )
 
     return success_response(message="Project members added successfully")
@@ -111,7 +111,7 @@ def remove_member_from_project(project_id, user_id):
     ProjectMemberService.remove_member_from_project(
         project_id=UUID(project_id),
         user_id=UUID(user_id),
-      actor_user_id=UUID(get_jwt_identity()),
+        actor_user_id=UUID(get_jwt_identity()),
     )
 
     return success_response(message="Project member removed successfully")

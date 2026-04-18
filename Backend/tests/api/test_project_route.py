@@ -322,6 +322,48 @@ def test_list_projects_filters_by_search_and_my_projects(client, user_factory, p
     assert body["data"][0]["is_owner"] is True
 
 
+def test_list_projects_filters_by_participating_only(
+    client,
+    user_factory,
+    project_factory,
+    project_member_factory,
+):
+    current_user = user_factory(email="list-participating-current@test.com")
+    another_user = user_factory(email="list-participating-other@test.com")
+
+    owned_project = project_factory(
+        owner=current_user, name="Owned Participating", visibility="PRIVATE"
+    )
+    member_private_project = project_factory(
+        owner=another_user,
+        name="Member Participating",
+        visibility="PRIVATE",
+    )
+    public_viewer_project = project_factory(
+        owner=another_user,
+        name="Public Viewer Only",
+        visibility="PUBLIC",
+    )
+
+    project_member_factory(project=member_private_project, user=current_user)
+
+    access_token = _login_and_get_access_token(client, email=current_user.email)
+
+    response = client.get(
+        "/projects?participating_only=true",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+
+    project_names = [project["name"] for project in body["data"]]
+    assert owned_project.name in project_names
+    assert member_private_project.name in project_names
+    assert public_viewer_project.name not in project_names
+
+
 def test_list_projects_returns_401_without_token(client):
     response = client.get("/projects")
 
@@ -398,6 +440,26 @@ def test_get_project_details_returns_401_without_token(client, project_factory):
     response = client.get(f"/projects/{project.id}")
 
     assert response.status_code == 401
+
+
+def test_get_project_details_returns_200_for_public_project_outsider(
+    client, user_factory, project_factory
+):
+    owner = user_factory(email="route-project-detail-public-owner@test.com")
+    outsider = user_factory(email="route-project-detail-public-outsider@test.com")
+    project = project_factory(owner=owner, visibility="PUBLIC")
+    access_token = _login_and_get_access_token(client, email=outsider.email)
+
+    response = client.get(
+        f"/projects/{project.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["data"]["is_owner"] is False
+    assert body["data"]["user_role"] == "VIEWER"
 
 
 def test_list_projects_returns_400_when_my_projects_is_invalid(client, user_factory):

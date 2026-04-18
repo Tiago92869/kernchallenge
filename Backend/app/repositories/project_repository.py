@@ -1,7 +1,7 @@
 from app.extensions import db
 from app.models.project import Project, ProjectVisibility
 from app.models.project_member import ProjectMember
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import joinedload
 
 
@@ -17,13 +17,33 @@ class ProjectRepository:
         return db.session.get(Project, project_id)
 
     @staticmethod
-    def list_available_projects(*, user_id, search: str | None = None, my_projects: bool = False):
+    def list_available_projects(
+        *,
+        user_id,
+        search: str | None = None,
+        my_projects: bool = False,
+        participating_only: bool = False,
+    ):
         query = Project.query.options(
             joinedload(Project.project_members).joinedload(ProjectMember.user)
         )
 
         if my_projects:
             query = query.filter(Project.owner_id == user_id)
+        elif participating_only:
+            query = query.outerjoin(
+                ProjectMember,
+                and_(
+                    ProjectMember.project_id == Project.id,
+                    ProjectMember.user_id == user_id,
+                    ProjectMember.removed_at.is_(None),
+                ),
+            ).filter(
+                or_(
+                    Project.owner_id == user_id,
+                    ProjectMember.user_id.is_not(None),
+                )
+            )
         else:
             query = query.filter(
                 or_(

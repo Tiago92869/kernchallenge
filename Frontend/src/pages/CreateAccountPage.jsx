@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '../services/apiError'
 import { createAccountRequest } from '../services/authService'
 import heroImage from '../../../Documentation/images/land_page_image.png'
-import logoImage from '../../../Documentation/images/logo.png'
+import logoImage from '../../../Documentation/images/logo_new.png'
 
 function getPasswordStrength(password) {
   if (!password) {

@@ -9,6 +9,7 @@ import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import LandingPage from '../pages/LandingPage'
 import LoginPage from '../pages/LoginPage'
 import NotFoundPage from '../pages/NotFoundPage'
+import NotificationDetailPage from '../pages/NotificationDetailPage'
 import NotificationsPage from '../pages/NotificationsPage'
 import ProjectDetailPage from '../pages/ProjectDetailPage'
 import ProjectMembersPage from '../pages/ProjectMembersPage'
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="time-entries" element={<TimeEntriesPage />} />
         <Route path="time-entries/:id" element={<TimeEntryDetailPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="notifications/:id" element={<NotificationDetailPage />} />
         <Route path="profile" element={<UserProfilePage />} />
       </Route>
 

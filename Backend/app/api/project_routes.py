@@ -92,6 +92,11 @@ def list_projects():
         type: boolean
         required: false
         description: When true, returns only projects where user is owner
+      - in: query
+        name: participating_only
+        type: boolean
+        required: false
+        description: When true, returns only projects where user is owner or active member
     responses:
       200:
         description: Project list returned
@@ -108,6 +113,10 @@ def list_projects():
         my_projects=_parse_bool_query_param(
             request.args.get("my_projects"),
             field_name="my_projects",
+        ),
+        participating_only=_parse_bool_query_param(
+            request.args.get("participating_only"),
+            field_name="participating_only",
         ),
     )
 

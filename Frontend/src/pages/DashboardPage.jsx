@@ -336,7 +336,9 @@ function DashboardPage() {
             <ul className="notification-preview-list">
               {notifications.map((notification) => (
                 <li key={notification.id}>
-                  <p>{notification.message}</p>
+                  <Link to={`/notifications/${notification.id}`} className="notification-link">
+                    <p>{notification.message}</p>
+                  </Link>
                 </li>
               ))}
             </ul>

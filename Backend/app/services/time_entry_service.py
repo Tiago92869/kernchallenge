@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from app.api.errors import ForbiddenError, NotFoundError, ValidationError
+from app.models.project import ProjectVisibility
 from app.models.time_entry import TimeEntry
 from app.repositories.project_member_repository import ProjectMemberRepository
 from app.repositories.project_repository import ProjectRepository
@@ -152,9 +153,10 @@ class TimeEntryService:
     ) -> list[TimeEntry]:
         """Get project time entries respecting role-based visibility rules.
 
-        Owner: sees all entries
-        Regular member: sees only their own entries
-        Non-member: denied
+        Public project: all authenticated users can see all entries.
+        Private project owner: sees all entries.
+        Private project member: sees only their own entries.
+        Private project non-member: denied.
         """
         if not ProjectService.does_project_exist_and_active(project_id):
             raise NotFoundError(message="Project not found or is archived")
@@ -166,11 +168,17 @@ class TimeEntryService:
 
         is_owner = project.owner_id == user_id
         is_member = ProjectMemberRepository.get_by_id(user_id, project_id) is not None
+        visibility_value = (
+            project.visibility.value
+            if isinstance(project.visibility, ProjectVisibility)
+            else project.visibility
+        )
+        is_public = visibility_value == ProjectVisibility.PUBLIC.value
 
-        if not is_owner and not is_member:
+        if not is_owner and not is_member and not is_public:
             raise ForbiddenError(message="User does not have access to this project")
 
-        owner_sees_all = is_owner
+        owner_sees_all = is_owner or is_public
         member_filter_user_id = None if owner_sees_all else user_id
 
         if start_date and end_date and start_date > end_date:
