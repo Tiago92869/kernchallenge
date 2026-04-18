@@ -1,21 +1,46 @@
 import { useState } from 'react'
 
-function toTimeValue(durationMinutes) {
+function toDurationValue(durationMinutes) {
   const hours = Math.floor((durationMinutes || 0) / 60)
   const minutes = (durationMinutes || 0) % 60
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+
+  if (minutes === 0) {
+    return `${hours}h`
+  }
+
+  return `${hours}:${String(minutes).padStart(2, '0')}h`
 }
 
-function toDurationMinutes(timeValue) {
-  const [hours = '0', minutes = '0'] = (timeValue || '00:00').split(':')
-  return Number(hours) * 60 + Number(minutes)
+function toDurationMinutes(durationValue) {
+  const normalized = (durationValue || '').toLowerCase().replace(/\s+/g, '')
+
+  const hmMatch = normalized.match(/^(\d+):(\d{1,2})h?$/)
+  if (hmMatch) {
+    const hours = Number(hmMatch[1])
+    const minutes = Number(hmMatch[2])
+    if (minutes >= 60) return 0
+    return hours * 60 + minutes
+  }
+
+  const hoursMatch = normalized.match(/^(\d+(?:[.,]\d+)?)h$/)
+  if (hoursMatch) {
+    const hours = Number(hoursMatch[1].replace(',', '.'))
+    return Math.round(hours * 60)
+  }
+
+  const minutesMatch = normalized.match(/^(\d+)m$/)
+  if (minutesMatch) {
+    return Number(minutesMatch[1])
+  }
+
+  return 0
 }
 
 function buildInitialValues(entry, projects, lockedProjectId) {
   return {
     projectId: lockedProjectId || entry?.projectId || projects[0]?.id || '',
     date: entry?.date || '2026-04-17',
-    timeValue: toTimeValue(entry?.durationMinutes || 60),
+    durationValue: toDurationValue(entry?.durationMinutes || 60),
     description: entry?.description || '',
   }
 }
@@ -47,9 +72,14 @@ function TimeEntryFormModal({ isOpen, mode, entry, projects, onClose, onSave, lo
           className="modal-body stack-sm"
           onSubmit={(event) => {
             event.preventDefault()
+            const durationMinutes = toDurationMinutes(values.durationValue)
+            if (durationMinutes <= 0) {
+              return
+            }
+
             onSave({
               ...values,
-              durationMinutes: toDurationMinutes(values.timeValue),
+              durationMinutes,
             })
           }}
         >
@@ -89,16 +119,17 @@ function TimeEntryFormModal({ isOpen, mode, entry, projects, onClose, onSave, lo
             />
           </label>
 
-          <label className="field" htmlFor="time-entry-time">
-            Time
+          <label className="field" htmlFor="time-entry-duration">
+            Duration
             <input
-              id="time-entry-time"
-              type="time"
-              step="60"
-              value={values.timeValue}
-              onChange={(event) => setValues((current) => ({ ...current, timeValue: event.target.value }))}
+              id="time-entry-duration"
+              type="text"
+              value={values.durationValue}
+              onChange={(event) => setValues((current) => ({ ...current, durationValue: event.target.value }))}
+              placeholder="e.g. 2h or 2:30h"
               required
             />
+            <small className="muted">Use duration format, for example: 2h, 2:30h, or 150m.</small>
           </label>
 
           <label className="field" htmlFor="time-entry-description">

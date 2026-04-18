@@ -3,7 +3,7 @@ from uuid import UUID
 
 import pytest
 
-from app.api.errors import NotFoundError
+from app.api.errors import ForbiddenError, NotFoundError
 from app.models.notification import Notification, NotificationType
 from app.models.project_member import ProjectMember
 from app.services.project_member_service import ProjectMemberService
@@ -106,6 +106,22 @@ def test_add_member_to_project_raises_when_user_is_missing(project_factory):
     assert exc_info.value.message == f"User with id {missing_user_id} not found or is not active"
 
 
+def test_add_member_to_project_raises_when_actor_is_not_owner(project_factory, user_factory):
+    owner = user_factory(email="project-member-owner-enforcement@test.com")
+    actor = user_factory(email="project-member-actor-enforcement@test.com")
+    member = user_factory(email="project-member-target-enforcement@test.com")
+    project = project_factory(owner=owner)
+
+    with pytest.raises(ForbiddenError) as exc_info:
+        ProjectMemberService.add_member_to_project(
+            project.id,
+            [member.id],
+            actor_user_id=actor.id,
+        )
+
+    assert exc_info.value.message == "User is not the project owner"
+
+
 def test_remove_member_from_project_sets_removed_fields(
     project_factory, user_factory, project_member_factory
 ):
@@ -169,6 +185,25 @@ def test_remove_member_from_project_raises_when_user_is_missing(project_factory)
         ProjectMemberService.remove_member_from_project(project.id, missing_user_id)
 
     assert exc_info.value.message == f"User with id {missing_user_id} not found or is not active"
+
+
+def test_remove_member_from_project_raises_when_actor_is_not_owner(
+    project_factory, user_factory, project_member_factory
+):
+    owner = user_factory(email="project-member-remove-owner-enforcement@test.com")
+    actor = user_factory(email="project-member-remove-actor-enforcement@test.com")
+    member = user_factory(email="project-member-remove-target-enforcement@test.com")
+    project = project_factory(owner=owner)
+    project_member_factory(project=project, user=member)
+
+    with pytest.raises(ForbiddenError) as exc_info:
+        ProjectMemberService.remove_member_from_project(
+            project.id,
+            member.id,
+            actor_user_id=actor.id,
+        )
+
+    assert exc_info.value.message == "User is not the project owner"
 
 
 def test_project_member_get_currently_active_members(

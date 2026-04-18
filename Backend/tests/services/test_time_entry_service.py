@@ -299,6 +299,17 @@ def test_delete_time_entry_by_id_denies_when_different_user(time_entry_factory, 
     assert exc_info.value.message == "You do not have permission to delete this time entry"
 
 
+def test_delete_time_entry_by_id_raises_not_found_when_already_deleted(time_entry_factory):
+    time_entry = time_entry_factory(description="Delete me twice")
+
+    TimeEntryService.delete_time_entry_by_id(time_entry.id, time_entry.user_id)
+
+    with pytest.raises(NotFoundError) as exc_info:
+        TimeEntryService.delete_time_entry_by_id(time_entry.id, time_entry.user_id)
+
+    assert exc_info.value.message == "Time entry not found"
+
+
 def test_get_time_entries_by_project_owner_sees_all(
     time_entry_factory, user_factory, project_factory, project_member_factory
 ):

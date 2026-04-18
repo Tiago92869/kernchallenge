@@ -10,6 +10,7 @@ from app.extensions import db
 class NotificationType(enum.Enum):
     ADDED = "ADDED"
     REMOVED = "REMOVED"
+    ARCHIVED = "ARCHIVED"
 
 
 class Notification(db.Model):

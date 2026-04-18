@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 import ProjectCreateModal from '../components/ProjectCreateModal'
 import TimeEntryFormModal from '../components/TimeEntryFormModal'
-import { getMockEntriesByProjectId, getMockProjectById } from '../mocks/projects'
+import { getApiErrorMessage } from '../services/apiError'
+import { archiveProject, getProjectDetails, updateProject } from '../services/projectService'
+import { createTimeEntry, getProjectTimeEntries } from '../services/timeEntryService'
 
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString(undefined, {
@@ -37,11 +39,62 @@ function matchesDateRange(dateString, fromDate, toDate) {
   return true
 }
 
+function normalizeProjectDetails(apiProject) {
+  const members = Array.isArray(apiProject?.members)
+    ? apiProject.members.map((member) => ({
+        id: member.id,
+        firstName: member.first_name,
+        lastName: member.last_name,
+        email: member.email,
+      }))
+    : []
+
+  return {
+    id: apiProject.id,
+    name: apiProject.name,
+    description: apiProject.description,
+    visibility: apiProject.visibility,
+    isArchived: Boolean(apiProject.is_archived),
+    isOwner: Boolean(apiProject.is_owner),
+    userRole: apiProject.user_role,
+    ownerId: apiProject.owner_id,
+    members,
+    createdAt: apiProject.created_at,
+    lastEntryAt: apiProject.last_entry_at,
+  }
+}
+
+function normalizeEntries(apiEntries, membersById) {
+  return apiEntries.map((entry) => {
+    const member = membersById.get(entry.user_id)
+    const firstName = member?.firstName || 'Unknown'
+    const lastName = member?.lastName || 'User'
+    return {
+      id: entry.id,
+      projectId: entry.project_id,
+      userId: entry.user_id,
+      date: entry.date,
+      durationMinutes: entry.hours,
+      description: entry.description,
+      loggedBy: `${firstName} ${lastName}`.trim(),
+      user: {
+        firstName,
+        lastName,
+      },
+    }
+  })
+}
+
 function ProjectDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams()
 
-  const [project, setProject] = useState(() => getMockProjectById(id))
+  const [project, setProject] = useState(null)
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
   const [searchValue, setSearchValue] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -49,7 +102,29 @@ function ProjectDetailPage() {
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false)
   const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false)
 
-  const [entries, setEntries] = useState(() => getMockEntriesByProjectId(id).map((entry) => ({ ...entry })))
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setError('')
+
+    try {
+      const projectDetails = await getProjectDetails(id)
+      const normalizedProject = normalizeProjectDetails(projectDetails)
+      const membersById = new Map(normalizedProject.members.map((member) => [member.id, member]))
+      const apiEntries = await getProjectTimeEntries(id)
+      const normalizedEntries = normalizeEntries(apiEntries, membersById)
+
+      setProject(normalizedProject)
+      setEntries(normalizedEntries)
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Could not load project details.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const visibleEntries = useMemo(() => {
     const normalized = searchValue.trim().toLowerCase()
@@ -72,6 +147,29 @@ function ProjectDetailPage() {
       .sort((left, right) => right.date.localeCompare(left.date))
   }, [entries, searchValue, fromDate, toDate])
 
+  if (loading) {
+    return (
+      <section className="dashboard-stack">
+        <div className="dashboard-card">
+          <p className="muted">Loading project details...</p>
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className="dashboard-stack">
+        <div className="dashboard-card stack-sm">
+          <p className="muted">{error}</p>
+          <button type="button" className="btn-primary" onClick={loadData}>
+            Retry
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   if (!project) {
     return (
       <section className="dashboard-stack">
@@ -85,15 +183,13 @@ function ProjectDetailPage() {
     )
   }
 
-  const isOwner = project.userRole === 'OWNER'
+  const isOwner = project.isOwner
   const isArchived = Boolean(project.isArchived)
-  const blockReason = project.canAccess === false ? 'private' : isArchived ? 'archived' : null
-  const isBlocked = Boolean(blockReason)
   const roleLabel = isArchived ? 'Archived' : isOwner ? 'Owner' : 'Member'
 
   return (
     <section className="stack-lg project-detail-page">
-      <div className={`blocked-project-content ${isBlocked ? 'blurred' : ''}`}>
+      <div className="blocked-project-content">
         <div className="dashboard-card project-detail-summary-card">
           <div className="project-detail-summary-main">
             <h2>{project.name}</h2>
@@ -127,6 +223,7 @@ function ProjectDetailPage() {
                 aria-label="Edit project"
                 title="Edit project"
                 onClick={() => setIsEditOpen(true)}
+                disabled={saving}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75z" />
@@ -142,6 +239,7 @@ function ProjectDetailPage() {
                 aria-label="Archive project"
                 title="Archive project"
                 onClick={() => setIsArchiveConfirmOpen(true)}
+                disabled={saving}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M20.54 5.23 19.15 3.5H4.85L3.46 5.23A1 1 0 0 0 3.25 6v2a1 1 0 0 0 1 1h.75v9.25a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9h.75a1 1 0 0 0 1-1V6a1 1 0 0 0-.21-.77ZM5.42 5.5h13.16l.4.5H5.02l.4-.5ZM17 17.75H7V9h10v8.75ZM9.5 11.75h5v1.5h-5z" />
@@ -208,7 +306,11 @@ function ProjectDetailPage() {
                 </thead>
                 <tbody>
                   {visibleEntries.map((entry) => (
-                    <tr key={entry.id}>
+                    <tr
+                      key={entry.id}
+                      className="entries-row-clickable"
+                      onClick={() => navigate(`/time-entries/${entry.id}`, { state: { entry } })}
+                    >
                       <td>
                         <div className="project-entry-user-cell">
                           <span className="project-member-bubble">{getInitials(entry.user.firstName, entry.user.lastName)}</span>
@@ -243,15 +345,17 @@ function ProjectDetailPage() {
         mode="edit"
         project={project}
         onClose={() => setIsEditOpen(false)}
-        onSave={(values) => {
-          setProject((current) => ({
-            ...current,
-            name: values.name,
-            description: values.description,
-            visibility: values.visibility,
-            updatedAt: new Date().toISOString(),
-          }))
-          setIsEditOpen(false)
+        onSave={async (values) => {
+          setSaving(true)
+          try {
+            await updateProject(project.id, values)
+            await loadData()
+            setIsEditOpen(false)
+          } catch (requestError) {
+            setError(getApiErrorMessage(requestError, 'Could not update project.'))
+          } finally {
+            setSaving(false)
+          }
         }}
       />
 
@@ -260,37 +364,42 @@ function ProjectDetailPage() {
         isOpen={isAddEntryOpen}
         mode="create"
         entry={null}
-        projects={[project]}
+        projects={[{ id: project.id, name: project.name }]}
         lockedProjectId={project.id}
         onClose={() => setIsAddEntryOpen(false)}
-        onSave={(values) => {
-          const now = new Date().toISOString()
-          const nextEntry = {
-            id: `pentry-${Date.now()}`,
-            projectId: project.id,
-            user: { firstName: 'Alex', lastName: 'Johnson' },
-            date: values.date,
-            durationMinutes: values.durationMinutes,
-            description: values.description,
-            createdAt: now,
-            updatedAt: now,
+        onSave={async (values) => {
+          setSaving(true)
+          try {
+            await createTimeEntry({
+              project_id: project.id,
+              date: values.date,
+              hours: values.durationMinutes,
+              description: values.description,
+            })
+            await loadData()
+            setIsAddEntryOpen(false)
+          } catch (requestError) {
+            setError(getApiErrorMessage(requestError, 'Could not create time entry.'))
+          } finally {
+            setSaving(false)
           }
-
-          setEntries((current) => [nextEntry, ...current])
-          setIsAddEntryOpen(false)
         }}
       />
 
       <ConfirmDeleteModal
         isOpen={isArchiveConfirmOpen}
         onCancel={() => setIsArchiveConfirmOpen(false)}
-        onConfirm={() => {
-          setProject((current) => ({
-            ...current,
-            isArchived: true,
-            updatedAt: new Date().toISOString(),
-          }))
-          setIsArchiveConfirmOpen(false)
+        onConfirm={async () => {
+          setSaving(true)
+          try {
+            await archiveProject(project.id)
+            await loadData()
+            setIsArchiveConfirmOpen(false)
+          } catch (requestError) {
+            setError(getApiErrorMessage(requestError, 'Could not archive project.'))
+          } finally {
+            setSaving(false)
+          }
         }}
         title="Archive Project"
         message="Are you sure you want to archive this project? After this action, you will not be able to go back."
@@ -298,44 +407,10 @@ function ProjectDetailPage() {
         cancelText="Cancel"
         confirmClassName="btn-danger"
       />
-
-      {isBlocked ? (
-        <div className="modal-overlay" role="presentation" onClick={() => navigate('/projects')}>
-          <article
-            className="modal-card private-project-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="project-access-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="modal-head private-project-head">
-              <span className="private-project-lock" aria-hidden="true">{blockReason === 'archived' ? '🗄️' : '🔒'}</span>
-              <h2 id="project-access-title">{blockReason === 'archived' ? 'Archived Project' : 'Private Project'}</h2>
-            </div>
-
-            <div className="modal-body stack-sm private-project-body">
-              {blockReason === 'archived' ? (
-                <p className="confirm-copy">
-                  <strong>{project.name}</strong> is archived. Archived projects remain visible for history, but no new
-                  entries can be added.
-                </p>
-              ) : (
-                <p className="confirm-copy">
-                  <strong>{project.name}</strong> is private. You need an invitation from the owner to join.
-                </p>
-              )}
-
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => navigate('/projects')}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </article>
-        </div>
-      ) : null}
     </section>
   )
 }
 
 export default ProjectDetailPage
+
+

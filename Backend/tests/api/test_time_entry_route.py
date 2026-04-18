@@ -350,6 +350,27 @@ def test_delete_time_entry_by_id_returns_401_without_token(client):
     assert response.status_code == 401
 
 
+def test_delete_time_entry_by_id_returns_404_when_already_deleted(client, time_entry_factory):
+    time_entry = time_entry_factory(description="Delete from route twice")
+    access_token = _login_and_get_access_token(client, email=time_entry.user.email)
+
+    first_response = client.delete(
+        f"/time-entries/{time_entry.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert first_response.status_code == 200
+
+    second_response = client.delete(
+        f"/time-entries/{time_entry.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert second_response.status_code == 404
+    body = second_response.get_json()
+    assert body["success"] is False
+    assert "not found" in body["error"]["message"].lower()
+
+
 def test_delete_time_entry_by_id_returns_403_when_different_user(
     client, time_entry_factory, user_factory
 ):

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import ProjectCreateModal from '../components/ProjectCreateModal'
-import { MOCK_PROJECTS } from '../mocks/projects'
+import { createProject, getProjects } from '../services/projectService'
 
 function formatCreatedDate(dateString) {
   return new Date(dateString).toLocaleDateString(undefined, {
@@ -40,32 +40,85 @@ function getMemberInitials(member) {
   return `${member.firstName[0] || ''}${member.lastName[0] || ''}`.toUpperCase()
 }
 
+function getMemberColorClass(member) {
+  const colors = ['color-1', 'color-2', 'color-3', 'color-4', 'color-5', 'color-6']
+  let hash = 0
+  const str = member.id || member.email || ''
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash = hash & hash
+  }
+  const index = Math.abs(hash) % colors.length
+  return `project-member-bubble-${colors[index]}`
+}
+
 function getUserRoleLabel(project) {
-  if (project.isArchived) {
+  if (project.is_archived) {
     return 'Archived'
   }
 
-  if (project.userRole === 'NONE') {
-    return 'Not Member'
+  if (project.user_role === 'OWNER' || project.is_owner) {
+    return 'Owner'
   }
 
-  return project.userRole === 'OWNER' ? 'Owner' : 'Member'
+  if (project.user_role === 'MEMBER' || project.is_member) {
+    return 'Member'
+  }
+
+  return 'No role'
+}
+
+function normalizeProject(apiProject) {
+  return {
+    id: apiProject.id,
+    name: apiProject.name,
+    description: apiProject.description || '',
+    visibility: apiProject.visibility,
+    is_archived: apiProject.is_archived,
+    is_owner: apiProject.is_owner,
+    is_member: Boolean(apiProject.is_member),
+    user_role: apiProject.user_role || null,
+    isMine: apiProject.is_owner,
+    canAccess: true,
+    created_at: apiProject.created_at,
+    createdAt: apiProject.created_at,
+    last_entry_at: apiProject.last_entry_at,
+    lastEntryAt: apiProject.last_entry_at,
+    members: (apiProject.members || []).map((m) => ({
+      id: m.id,
+      firstName: m.first_name,
+      lastName: m.last_name,
+      email: m.email,
+    })),
+  }
 }
 
 function ProjectsPage() {
   const navigate = useNavigate()
-  const [projects, setProjects] = useState(() => MOCK_PROJECTS.map((project) => ({ ...project })))
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchValue, setSearchValue] = useState('')
   const [isMyProjectsOnly, setIsMyProjectsOnly] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [accessModal, setAccessModal] = useState(null)
+
+  const loadProjects = useCallback(async () => {
+    setLoading(true)
+    const fetched = await getProjects()
+    setProjects(fetched.map(normalizeProject))
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    loadProjects()
+  }, [loadProjects])
 
   const visibleProjects = useMemo(() => {
     const normalized = searchValue.trim().toLowerCase()
 
     return projects
       .filter((project) => {
-        if (isMyProjectsOnly && !project.isMine) {
+        if (isMyProjectsOnly && !project.is_owner) {
           return false
         }
 
@@ -78,38 +131,25 @@ function ProjectsPage() {
           .toLowerCase()
           .includes(normalized)
       })
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
   }, [projects, searchValue, isMyProjectsOnly])
 
-  function handleCreateProject(values) {
-    const now = new Date().toISOString()
-
-    const nextProject = {
-      id: `project-${Date.now()}`,
+  async function handleCreateProject(values) {
+    const created = await createProject({
       name: values.name,
       description: values.description,
       visibility: values.visibility,
-      isArchived: false,
-      userRole: 'OWNER',
-      isMine: true,
-      canAccess: true,
-      members: [{ id: 'u-alex', firstName: 'Alex', lastName: 'Johnson' }],
-      createdAt: now,
-      lastEntryAt: null,
-    }
+    })
 
-    setProjects((current) => [nextProject, ...current])
+    if (created) {
+      setProjects((current) => [normalizeProject(created), ...current])
+    }
     setIsCreateOpen(false)
   }
 
   function handleOpenProject(project) {
-    if (project.isArchived) {
+    if (project.is_archived) {
       setAccessModal({ type: 'archived', project })
-      return
-    }
-
-    if (project.canAccess === false) {
-      setAccessModal({ type: 'private', project })
       return
     }
 
@@ -161,7 +201,11 @@ function ProjectsPage() {
         </div>
 
         <div className="dashboard-card entries-table-card">
-          {visibleProjects.length ? (
+          {loading ? (
+            <div className="entries-empty-state">
+              <p className="muted">Loading projects…</p>
+            </div>
+          ) : visibleProjects.length ? (
             <div className="entries-table-wrap">
               <table className="entries-table projects-list-table">
                 <thead>
@@ -202,7 +246,7 @@ function ProjectsPage() {
                         <td>
                           <div className="project-member-bubbles" aria-label={`${project.members.length} members`}>
                             {project.members.slice(0, 3).map((member) => (
-                              <span key={member.id} className="project-member-bubble" title={`${member.firstName} ${member.lastName}`}>
+                              <span key={member.id} className={`project-member-bubble ${getMemberColorClass(member)}`} title={`${member.firstName} ${member.lastName}`}>
                                 {getMemberInitials(member)}
                               </span>
                             ))}
@@ -229,7 +273,7 @@ function ProjectsPage() {
           ) : (
             <div className="entries-empty-state">
               <h3>No projects match this filter</h3>
-              <p className="muted">Try removing the search text or disable My Projects to see all mocked projects.</p>
+              <p className="muted">Try removing the search text or disable My Projects to see all projects.</p>
             </div>
           )}
         </div>
@@ -252,23 +296,15 @@ function ProjectsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-head private-project-head">
-              <span className="private-project-lock" aria-hidden="true">
-                {accessModal.type === 'archived' ? '🗄️' : '🔒'}
-              </span>
-              <h2 id="project-access-title">{accessModal.type === 'archived' ? 'Archived Project' : 'Private Project'}</h2>
+              <span className="private-project-lock" aria-hidden="true">🗄️</span>
+              <h2 id="project-access-title">Archived Project</h2>
             </div>
 
             <div className="modal-body stack-sm private-project-body">
-              {accessModal.type === 'archived' ? (
-                <p className="confirm-copy">
-                  <strong>{accessModal.project.name}</strong> is archived. Archived projects remain visible for history,
-                  but no new entries can be added.
-                </p>
-              ) : (
-                <p className="confirm-copy">
-                  <strong>{accessModal.project.name}</strong> is private. You need an invitation from the owner to join.
-                </p>
-              )}
+              <p className="confirm-copy">
+                <strong>{accessModal?.project?.name}</strong> is archived. Archived projects remain visible for history,
+                but no new entries can be added.
+              </p>
 
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setAccessModal(null)}>

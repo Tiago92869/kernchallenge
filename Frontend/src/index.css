@@ -1631,6 +1631,21 @@ select {
   color: #4c5f82;
 }
 
+.project-role-badge.no-role {
+  color: #5f6774;
+  border: 1px solid #cfd5dd;
+  background-color: #eef1f4;
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(120, 129, 141, 0.12) 0,
+      rgba(120, 129, 141, 0.12) 2px,
+      rgba(238, 241, 244, 0) 2px,
+      rgba(238, 241, 244, 0) 7px
+    ),
+    linear-gradient(180deg, #f6f8fa 0%, #e9edf1 100%);
+}
+
 .project-role-badge.archived {
   background: #f8ebde;
   color: #8a6646;
@@ -1653,6 +1668,42 @@ select {
   font-size: 0.72rem;
   font-weight: 700;
   margin-left: -8px;
+}
+
+.project-member-bubble-color-1 {
+  background: #dbe7fb;
+  color: #2c548f;
+  border-color: #c5d9f5;
+}
+
+.project-member-bubble-color-2 {
+  background: #d6f0f0;
+  color: #2d6b7a;
+  border-color: #b8e5e5;
+}
+
+.project-member-bubble-color-3 {
+  background: #e6d9f8;
+  color: #5d3a7c;
+  border-color: #d5b8f0;
+}
+
+.project-member-bubble-color-4 {
+  background: #d9f0e3;
+  color: #2d7a4a;
+  border-color: #b8e5d0;
+}
+
+.project-member-bubble-color-5 {
+  background: #e0e3e8;
+  color: #4a5568;
+  border-color: #c8cdd5;
+}
+
+.project-member-bubble-color-6 {
+  background: #ede9f8;
+  color: #4a3a7a;
+  border-color: #d5cef0;
 }
 
 .project-member-bubble:first-child {

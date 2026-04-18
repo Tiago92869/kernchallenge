@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 import TimeEntryFormModal from '../components/TimeEntryFormModal'
+import { useAuth } from '../hooks/useAuth'
 import { MOCK_PROJECTS } from '../mocks/timeEntries'
 import { getMockTimeEntryById } from '../mocks/timeEntries'
 
@@ -54,16 +55,36 @@ function buildFocusLabel(description) {
   return `${sentence.slice(0, 33)}...`
 }
 
+function parseUserIdFromToken(token) {
+  if (!token) return null
+
+  const parts = token.split('.')
+  if (parts.length < 2) return null
+
+  try {
+    const payload = JSON.parse(atob(parts[1]))
+    return payload?.sub || null
+  } catch {
+    return null
+  }
+}
+
 function TimeEntryDetailPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams()
-  const [entry, setEntry] = useState(() => getMockTimeEntryById(id))
+  const { token } = useAuth()
+  const currentUserId = useMemo(() => parseUserIdFromToken(token), [token])
+
+  const [entry, setEntry] = useState(() => location.state?.entry || getMockTimeEntryById(id))
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   useEffect(() => {
-    setEntry(getMockTimeEntryById(id))
-  }, [id])
+    setEntry(location.state?.entry || getMockTimeEntryById(id))
+  }, [id, location.state])
+
+  const isEntryOwner = !entry?.userId || !currentUserId || entry.userId === currentUserId
 
   if (!entry) {
     return (
@@ -97,14 +118,16 @@ function TimeEntryDetailPage() {
           <span className={`status-badge ${entry.project?.visibility?.toLowerCase() || 'public'}`}>
             {entry.project?.visibility === 'PRIVATE' ? 'Private project' : 'Public project'}
           </span>
-          <div className="entry-detail-actions">
-            <button type="button" className="btn-secondary" onClick={() => setIsEditOpen(true)}>
-              Edit Entry
-            </button>
-            <button type="button" className="btn-danger" onClick={() => setIsDeleteOpen(true)}>
-              Delete Entry
-            </button>
-          </div>
+          {isEntryOwner ? (
+            <div className="entry-detail-actions">
+              <button type="button" className="btn-secondary" onClick={() => setIsEditOpen(true)}>
+                Edit Entry
+              </button>
+              <button type="button" className="btn-danger" onClick={() => setIsDeleteOpen(true)}>
+                Delete Entry
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -145,48 +168,52 @@ function TimeEntryDetailPage() {
           </div>
           <div className="profile-field">
             <label>Logged By</label>
-            <p>{entry.loggedBy}</p>
+            <p>{entry.loggedBy || '-'}</p>
           </div>
           <div className="profile-field">
             <label>Created At</label>
-            <p>{formatDateTime(entry.createdAt)}</p>
+            <p>{entry.createdAt ? formatDateTime(entry.createdAt) : '-'}</p>
           </div>
           <div className="profile-field">
             <label>Last Updated</label>
-            <p>{formatDateTime(entry.updatedAt)}</p>
+            <p>{entry.updatedAt ? formatDateTime(entry.updatedAt) : '-'}</p>
           </div>
         </div>
       </div>
 
-      <TimeEntryFormModal
-        key={`detail-${entry.id}-${isEditOpen ? 'open' : 'closed'}`}
-        isOpen={isEditOpen}
-        mode="edit"
-        entry={entry}
-        projects={MOCK_PROJECTS}
-        onClose={() => setIsEditOpen(false)}
-        onSave={(values) => {
-          const nextProject = MOCK_PROJECTS.find((project) => project.id === values.projectId) || null
-          setEntry((current) => ({
-            ...current,
-            projectId: values.projectId,
-            project: nextProject,
-            date: values.date,
-            durationMinutes: values.durationMinutes,
-            description: values.description,
-            focus: buildFocusLabel(values.description),
-            updatedAt: '2026-04-17T12:00:00',
-          }))
-          setIsEditOpen(false)
-        }}
-      />
+      {isEntryOwner ? (
+        <>
+          <TimeEntryFormModal
+            key={`detail-${entry.id}-${isEditOpen ? 'open' : 'closed'}`}
+            isOpen={isEditOpen}
+            mode="edit"
+            entry={entry}
+            projects={MOCK_PROJECTS}
+            onClose={() => setIsEditOpen(false)}
+            onSave={(values) => {
+              const nextProject = MOCK_PROJECTS.find((project) => project.id === values.projectId) || null
+              setEntry((current) => ({
+                ...current,
+                projectId: values.projectId,
+                project: nextProject,
+                date: values.date,
+                durationMinutes: values.durationMinutes,
+                description: values.description,
+                focus: buildFocusLabel(values.description),
+                updatedAt: '2026-04-17T12:00:00',
+              }))
+              setIsEditOpen(false)
+            }}
+          />
 
-      <ConfirmDeleteModal
-        isOpen={isDeleteOpen}
-        description={entry.description}
-        onCancel={() => setIsDeleteOpen(false)}
-        onConfirm={() => navigate('/time-entries')}
-      />
+          <ConfirmDeleteModal
+            isOpen={isDeleteOpen}
+            description={entry.description}
+            onCancel={() => setIsDeleteOpen(false)}
+            onConfirm={() => navigate('/time-entries')}
+          />
+        </>
+      ) : null}
     </section>
   )
 }
