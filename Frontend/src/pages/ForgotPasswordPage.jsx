@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { getApiErrorMessage } from '../services/apiError'
+import { forgotPasswordRequest } from '../services/authService'
 import logoImage from '../../../Documentation/images/logo.png'
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault()
     setError('')
     setSuccessMessage('')
@@ -23,9 +26,15 @@ function ForgotPasswordPage() {
       return
     }
 
-    setSuccessMessage(
-      'If this email exists in the system, a password will be sent to that account. Update it after you log in.',
-    )
+    setIsSubmitting(true)
+    try {
+      const response = await forgotPasswordRequest({ email: email.trim() })
+      setSuccessMessage(response.message)
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Could not process password recovery. Please try again.'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -51,6 +60,7 @@ function ForgotPasswordPage() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="email"
+                disabled={isSubmitting}
                 required
               />
             </label>
@@ -58,8 +68,8 @@ function ForgotPasswordPage() {
             {error ? <p className="error">{error}</p> : null}
             {successMessage ? <p className="success">{successMessage}</p> : null}
 
-            <button type="submit" className="btn-primary login-submit">
-              Send recovery email
+            <button type="submit" className="btn-primary login-submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Sending...' : 'Send recovery email'}
             </button>
 
             <p className="muted login-footer-text">
