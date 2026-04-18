@@ -32,3 +32,11 @@ class NotificationRepository:
             query = query.filter(Notification.project_id == project_id)
 
         return query.order_by(Notification.created_at.desc()).all()
+
+    @staticmethod
+    def mark_all_as_read(recipient_user_id, read_at):
+        db.session.query(Notification).filter(
+            Notification.recipient_user_id == recipient_user_id,
+            Notification.is_read.is_(False),
+        ).update({"is_read": True, "read_at": read_at}, synchronize_session=False)
+        db.session.commit()

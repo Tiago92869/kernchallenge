@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
-import { MOCK_NOTIFICATIONS } from '../mocks/notifications'
+import { getNotifications } from '../services/notificationService'
 import logoImage from '../../../Documentation/images/logo.png'
 
 function timeAgo(dateString) {
@@ -41,13 +41,18 @@ function AppLayout() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+
+  useEffect(() => {
+    getNotifications().then(setNotifications).catch(() => {})
+  }, [])
 
   const handleLogout = async () => {
     await logout()
     navigate('/login', { replace: true })
   }
   const { title, back } = usePageMeta()
-  const unreadCount = MOCK_NOTIFICATIONS.filter((item) => !item.isRead).length
+  const unreadCount = notifications.filter((item) => !item.is_read).length
 
   return (
     <div className="workspace-shell">
@@ -103,7 +108,7 @@ function AppLayout() {
                 <div className="notif-popup" role="menu">
                   <p className="notif-popup-title">Notifications</p>
                   <ul>
-                    {MOCK_NOTIFICATIONS.slice(0, 4).map((n) => (
+                    {notifications.slice(0, 4).map((n) => (
                       <li key={n.id}>
                         <Link
                           to={`/notifications?open=${encodeURIComponent(n.id)}`}
@@ -111,7 +116,7 @@ function AppLayout() {
                           onClick={() => setNotifOpen(false)}
                         >
                           <span className="notif-popup-msg">{n.message}</span>
-                          <span className="notif-popup-time">{timeAgo(n.createdAt)}</span>
+                          <span className="notif-popup-time">{timeAgo(n.created_at)}</span>
                         </Link>
                       </li>
                     ))}

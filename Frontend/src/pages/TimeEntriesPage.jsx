@@ -159,16 +159,24 @@ function TimeEntriesPage() {
     <section className="entries-page stack-lg">
       <div className="dashboard-card entries-filters-card">
         <div className="entries-filters-grid">
-          <label className="field entries-search-field" htmlFor="entry-search">
-            Search entries
-            <input
-              id="entry-search"
-              type="search"
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              placeholder="Search by description, focus, or project"
-            />
-          </label>
+          <div className="entries-search-row">
+            <button type="button" className="notifications-search-btn" aria-label="Search time entries">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15.5 14h-.79l-.28-.27a6 6 0 1 0-.71.71l.27.28v.79L19 20.5 20.5 19zM10 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8z" />
+              </svg>
+            </button>
+
+            <label className="field entries-search-field" htmlFor="entry-search">
+              Search entries
+              <input
+                id="entry-search"
+                type="search"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+                placeholder="Search by description, focus, or project"
+              />
+            </label>
+          </div>
 
           <label className="field" htmlFor="entry-project-filter">
             Project

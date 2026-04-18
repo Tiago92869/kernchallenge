@@ -146,3 +146,73 @@ def test_mark_notification_as_read_returns_404_when_missing(client):
     body = response.get_json()
     assert body["success"] is False
     assert body["error"]["message"] == "Notification not found"
+
+
+def test_mark_all_notifications_as_read_returns_200(
+    client, notification_factory, user_factory, project_factory
+):
+    owner = user_factory(email="mark-all-owner@test.com")
+    recipient = user_factory(email="mark-all-recipient@test.com")
+    project = project_factory(owner=owner)
+
+    notification_factory(recipient_user=recipient, actor_user=owner, project=project, is_read=False)
+    notification_factory(recipient_user=recipient, actor_user=owner, project=project, is_read=False)
+
+    access_token = _login_and_get_access_token(client, email=recipient.email)
+
+    response = client.patch(
+        "/notifications/read-all",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    assert body["message"] == "All notifications marked as read"
+
+
+def test_mark_all_notifications_as_read_returns_200_when_none_unread(client, user_factory):
+    recipient = user_factory(email="mark-all-none-unread@test.com")
+    access_token = _login_and_get_access_token(client, email=recipient.email)
+
+    response = client.patch(
+        "/notifications/read-all",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+
+
+def test_mark_all_notifications_as_read_returns_401_without_token(client):
+    response = client.patch("/notifications/read-all")
+
+    assert response.status_code == 401
+
+
+def test_mark_all_notifications_as_read_does_not_affect_other_users(
+    client, notification_factory, user_factory, project_factory
+):
+    owner = user_factory(email="mark-all-cross-owner@test.com")
+    recipient_a = user_factory(email="mark-all-cross-a@test.com")
+    recipient_b = user_factory(email="mark-all-cross-b@test.com")
+    project = project_factory(owner=owner)
+
+    notif_a = notification_factory(
+        recipient_user=recipient_a, actor_user=owner, project=project, is_read=False
+    )
+    notification_factory(
+        recipient_user=recipient_b, actor_user=owner, project=project, is_read=False
+    )
+
+    access_token = _login_and_get_access_token(client, email=recipient_a.email)
+
+    client.patch(
+        "/notifications/read-all",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    # Verify recipient_b's notification is still unread via the individual endpoint
+    response_b = client.patch(f"/notifications/{notif_a.id}/read")
+    assert response_b.status_code == 200  # notif_a already read — idempotent

@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 import NotificationDetailModal from '../components/NotificationDetailModal'
-import { MOCK_NOTIFICATIONS } from '../mocks/notifications'
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from '../services/notificationService'
 
 function formatRelativeTime(dateString) {
   const now = Date.now()
@@ -35,7 +35,8 @@ function formatRelativeTime(dateString) {
 
 function NotificationsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [notifications, setNotifications] = useState(() => MOCK_NOTIFICATIONS.map((item) => ({ ...item })))
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchValue, setSearchValue] = useState('')
   const [filterValue, setFilterValue] = useState('all')
   const [selectedId, setSelectedId] = useState(null)
@@ -43,8 +44,22 @@ function NotificationsPage() {
   const openFromQuery = searchParams.get('open')
   const selectedNotificationId = selectedId || openFromQuery
 
+  const loadNotifications = useCallback(async () => {
+    setLoading(true)
+    try {
+      const items = await getNotifications()
+      setNotifications(items)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadNotifications()
+  }, [loadNotifications])
+
   const counters = useMemo(() => {
-    const unread = notifications.filter((item) => !item.isRead).length
+    const unread = notifications.filter((item) => !item.is_read).length
     return {
       all: notifications.length,
       unread,
@@ -57,26 +72,31 @@ function NotificationsPage() {
 
     return notifications
       .filter((item) => {
-        if (filterValue === 'unread' && item.isRead) return false
-        if (filterValue === 'read' && !item.isRead) return false
+        if (filterValue === 'unread' && item.is_read) return false
+        if (filterValue === 'read' && !item.is_read) return false
         if (!normalized) return true
 
-        return [item.projectName, item.message, item.type, item.sender].join(' ').toLowerCase().includes(normalized)
+        return [item.message, item.notification_type].join(' ').toLowerCase().includes(normalized)
       })
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
   }, [notifications, searchValue, filterValue])
 
   const selectedNotification = notifications.find((item) => item.id === selectedNotificationId) || null
 
-  function markAllAsRead() {
-    setNotifications((current) => current.map((item) => ({ ...item, isRead: true })))
+  async function markAllAsRead() {
+    setNotifications((current) => current.map((item) => ({ ...item, is_read: true })))
     setIsMarkAllConfirmOpen(false)
+    markAllNotificationsRead().catch(() => {})
   }
 
-  function openNotification(notificationId) {
-    setNotifications((current) =>
-      current.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item)),
-    )
+  async function openNotification(notificationId) {
+    const target = notifications.find((item) => item.id === notificationId)
+    if (target && !target.is_read) {
+      setNotifications((current) =>
+        current.map((item) => (item.id === notificationId ? { ...item, is_read: true } : item)),
+      )
+      markNotificationRead(notificationId).catch(() => {})
+    }
     setSelectedId(notificationId)
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
@@ -86,13 +106,6 @@ function NotificationsPage() {
   }
 
   function closeNotification() {
-    const activeId = selectedNotificationId
-    if (activeId) {
-      setNotifications((current) =>
-        current.map((item) => (item.id === activeId ? { ...item, isRead: true } : item)),
-      )
-    }
-
     setSelectedId(null)
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
@@ -122,7 +135,13 @@ function NotificationsPage() {
             />
           </label>
 
-          <button type="button" className="btn-secondary" onClick={() => setIsMarkAllConfirmOpen(true)}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setIsMarkAllConfirmOpen(true)}
+            disabled={notifications.length === 0}
+            style={notifications.length === 0 ? { opacity: 0.45, cursor: 'not-allowed', filter: 'grayscale(1)' } : undefined}
+          >
             Mark all as read
           </button>
         </div>
@@ -153,7 +172,9 @@ function NotificationsPage() {
       </div>
 
       <div className="dashboard-card notifications-list-card">
-        {visibleNotifications.length ? (
+        {loading ? (
+          <p className="muted">Loading notifications...</p>
+        ) : visibleNotifications.length ? (
           <ul className="notifications-list">
             {visibleNotifications.map((notification) => (
               <li key={notification.id}>
@@ -164,16 +185,16 @@ function NotificationsPage() {
                   title="Open notification"
                 >
                   <span
-                    className={`notification-read-indicator ${notification.isRead || notification.id === selectedNotificationId ? 'read' : 'unread'}`}
-                    aria-label={notification.isRead || notification.id === selectedNotificationId ? 'Read notification' : 'Unread notification'}
+                    className={`notification-read-indicator ${notification.is_read ? 'read' : 'unread'}`}
+                    aria-label={notification.is_read ? 'Read notification' : 'Unread notification'}
                   />
 
                   <span className="notification-content">
-                    <strong>{notification.projectName}</strong>
+                    <strong>{notification.notification_type?.replaceAll('_', ' ')}</strong>
                     <span>{notification.message}</span>
                   </span>
 
-                  <span className="notification-time">{formatRelativeTime(notification.createdAt)}</span>
+                  <span className="notification-time">{formatRelativeTime(notification.created_at)}</span>
                 </button>
               </li>
             ))}
